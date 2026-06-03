@@ -1,0 +1,20 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "compilerPath": "C:/Users/fransergio.carvalho/Downloads/ti-cgt-c2000_20.2.1.LTS/bin/cl2000.exe",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:/Users/fransergio.carvalho/Downloads/ti-cgt-c2000_20.2.1.LTS/include",
+                "C:/DSP/DAS_CPLD/C2000Ware_6_00_01_00/device_support/f2837xs/common/include"
+                
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ]
+        }
+    ],
+    "version": 4
+}
