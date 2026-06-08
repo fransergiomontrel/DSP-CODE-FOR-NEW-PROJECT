@@ -32,10 +32,10 @@ chrono chrono1;
 uint32_t RX_Bytes, RX_USB_Bytes;
 uint8_t buffer_USB[256], buffer[256];
 int64_t timeBuffer;
-uint32_t T1, T2;
+uint32_t T1, T2, T3, T4;
 uint16_t syncTimes = 0, sendPhasor = 0, CRC_retry = 0, sec_transformer = 0;
-int32_t delay_dT1 = 0, delay_dT2 = 0;
-uint32_t delay__T1, delay__T2;
+int32_t delay_dT1 = 0, delay_dT2 = 0, delay_dT3 = 0;
+uint32_t delay__T1, delay__T2, delay__T3;
 
 long double Xre1 = 0.0, Xim1 = 0.0;
 long double Xre2 = 0.0, Xim2 = 0.0;
@@ -46,12 +46,13 @@ long double Xre6 = 0.0, Xim6 = 0.0;
 
 t_sync_frame syncPayload;
 
-extern volatile uint32_t delay_T1, delay_T2;
+extern volatile uint32_t delay_T1, delay_T2, delay_T3;
 extern volatile uint16_t timer_end;
 extern volatile uint8_t bufferFull;
 
 extern uint32_t delay_v_T1[syncMax];
 extern uint32_t delay_v_T2[syncMax];
+extern uint32_t delay_v_T3[syncMax];
 
 extern CiseiRxChannel rx_USB;
 extern CiseiTxChannel tx_USB;
@@ -59,6 +60,8 @@ extern CiseiRxChannel rx_Fibra1;
 extern CiseiTxChannel tx_Fibra1;
 extern CiseiRxChannel rx_Fibra2;
 extern CiseiTxChannel tx_Fibra2;
+extern CiseiRxChannel rx_Fibra3;
+extern CiseiTxChannel tx_Fibra3;
 
 extern volatile t_adc_results ADC_Results;
 
@@ -93,9 +96,12 @@ STATE(SM_TENSAO_CFG){
     #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
 #endif
     init_tx_serial(&tx_Fibra2, tx_C_byte, 0);
+    init_tx_serial(&tx_Fibra3, tx_B_byte, 0);
 
     init_rx_serial(&rx_Fibra1, (uint8_t*)&data_frame.current_u, 2*sizeof(data_frame.current_u));
     init_rx_serial(&rx_Fibra2, (uint8_t*)&data_frame.current_u, 2*sizeof(data_frame.current_u));
+    init_rx_serial(&rx_Fibra3, (uint8_t*)&data_frame.current_u, 2*sizeof(data_frame.current_u));
+
     init_rx_serial(&rx_USB, buffer_USB, sizeof(buffer_USB));
 
 #if defined (BOARD_NEW)
@@ -111,7 +117,9 @@ STATE(SM_TENSAO_CFG){
 #else
     #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
 #endif
+
     tx_C_byte(0x01);
+    tx_B_byte(0x01);
 
     activateUART_Ints();
     CPLD_CFG_AD();
@@ -199,16 +207,35 @@ STATE(SM_TENSAO_DELAY){
 
                 }
         }
+            else if (sec_transformer == 2){
+                if((delay_T1 < 200000) && (delay_T2 < 200000) && (delay_T3 < 200000)){
+
+                    delay__T1 =  200000 - delay_T1;
+                    delay__T2 =  200000 - delay_T2;
+                    delay__T3 =  200000 - delay_T3;
+                    delay_dT1 += delay__T1;
+                    delay_dT2 += delay__T2;
+                    delay_dT3 += delay__T3;
+                    delay_v_T1[syncTimes] = delay__T1;
+                    delay_v_T2[syncTimes] = delay__T2;
+                    delay_v_T3[syncTimes] = delay__T3;
+                    syncTimes++;
+
+                }
+        }
 
 
         if(syncTimes == syncMax){
             int o = 0;
-            data_frame.voltage_u.voltage.sync_data.T1_Max = data_frame.voltage_u.voltage.sync_data.T2_Max = 0;
-            data_frame.voltage_u.voltage.sync_data.T1_Min = data_frame.voltage_u.voltage.sync_data.T2_Min = 9999999;
-            uint32_t dp1 = 0, dp2 = 0;
+            data_frame.voltage_u.voltage.sync_data.T1_Max = data_frame.voltage_u.voltage.sync_data.T2_Max = data_frame.voltage_u.voltage.sync_data.T3_Max = 0;
+            data_frame.voltage_u.voltage.sync_data.T1_Min = data_frame.voltage_u.voltage.sync_data.T2_Min = data_frame.voltage_u.voltage.sync_data.T3_Min = 9999999;
+            uint32_t dp1 = 0, dp2 = 0, dp3 = 0;
             data_frame.voltage_u.voltage.sync_data.T1 = (delay_dT1/(syncMax*2));//*(5E-9))/(1E-6);
-            if(sec_transformer)
+            if(sec_transformer == 1)
                 data_frame.voltage_u.voltage.sync_data.T2 = (delay_dT2/(syncMax*2));//*(5E-9))/(1E-6);
+            else if(sec_transformer == 2)
+                data_frame.voltage_u.voltage.sync_data.T2 = (delay_dT2/(syncMax*2));//*(5E-9))/(1E-6);
+                data_frame.voltage_u.voltage.sync_data.T3 = (delay_dT3/(syncMax*2));//*(5E-9))/(1E-6);
 
             for(o = 0; o < syncMax; o++){
                 uint32_t val1 = delay_v_T1[o];
@@ -216,30 +243,58 @@ STATE(SM_TENSAO_DELAY){
                 data_frame.voltage_u.voltage.sync_data.T1_Min = MIN(data_frame.voltage_u.voltage.sync_data.T1_Min,val1);
                 dp1 += pow(val1 - data_frame.voltage_u.voltage.sync_data.T1, 2);
 
-                if(sec_transformer){
+                if(sec_transformer == 1){
                     uint32_t val2 = delay_v_T2[o];
                     data_frame.voltage_u.voltage.sync_data.T2_Max = MAX(data_frame.voltage_u.voltage.sync_data.T2_Max,val2);
                     data_frame.voltage_u.voltage.sync_data.T2_Min = MIN(data_frame.voltage_u.voltage.sync_data.T2_Min,val2);
                     dp2 += pow(val2 - data_frame.voltage_u.voltage.sync_data.T2, 2);
                 }
+
+                else if(sec_transformer == 2){
+                    uint32_t val2 = delay_v_T2[o];
+                    data_frame.voltage_u.voltage.sync_data.T2_Max = MAX(data_frame.voltage_u.voltage.sync_data.T2_Max,val2);
+                    data_frame.voltage_u.voltage.sync_data.T2_Min = MIN(data_frame.voltage_u.voltage.sync_data.T2_Min,val2);
+                    dp2 += pow(val2 - data_frame.voltage_u.voltage.sync_data.T2, 2);
+
+                    uint32_t val3 = delay_v_T3[o];
+                    data_frame.voltage_u.voltage.sync_data.T3_Max = MAX(data_frame.voltage_u.voltage.sync_data.T3_Max,val3);
+                    data_frame.voltage_u.voltage.sync_data.T3_Min = MIN(data_frame.voltage_u.voltage.sync_data.T3_Min,val3);
+                    dp3 += pow(val2 - data_frame.voltage_u.voltage.sync_data.T3, 2);
+
+                }
+
             }
 
             data_frame.voltage_u.voltage.sync_data.DP1 = sqrtl(dp1/syncMax);
-            if(sec_transformer)
+            if(sec_transformer == 1)
                 data_frame.voltage_u.voltage.sync_data.DP2 = sqrtl(dp2/syncMax);
+            else if(sec_transformer == 2)
+                data_frame.voltage_u.voltage.sync_data.DP2 = sqrtl(dp2/syncMax);
+                data_frame.voltage_u.voltage.sync_data.DP3 = sqrtl(dp3/syncMax);
 
             NEXT_STATE(SM_TENSAO_TX_SYNC);
         }
     }
     if(syncTimes < syncMax){
         CpuTimer1Regs.TCR.bit.TRB = 1;
-        if(sec_transformer){
-            start_tx_frame(&tx_Fibra1, SYNC_DELAY, 0x0, 0x0);
-            start_tx_frame(&tx_Fibra2, SYNC_DELAY, 0x0, 0x0);
-            while(!(tx_end(&tx_Fibra1) && tx_end(&tx_Fibra2)));
-        }else{
+        if(sec_transformer == 0){
+
             start_tx_frame(&tx_Fibra1, SYNC_DELAY, 0x0, 0x0);
             while(!tx_end(&tx_Fibra1));
+
+        }else if(sec_transformer == 1) {
+            
+             start_tx_frame(&tx_Fibra1, SYNC_DELAY, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra2, SYNC_DELAY, 0x0, 0x0);
+             while(!(tx_end(&tx_Fibra1) && tx_end(&tx_Fibra2)));
+
+        }else if(sec_transformer == 2) {
+            
+             start_tx_frame(&tx_Fibra1, SYNC_DELAY, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra2, SYNC_DELAY, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra3, SYNC_DELAY, 0x0, 0x0);
+             while(!(tx_end(&tx_Fibra1) && tx_end(&tx_Fibra2) && tx_end(&tx_Fibra3)));
+
         }
 
         START(100); //100 valor antigo
@@ -249,6 +304,7 @@ STATE(SM_TENSAO_DELAY){
 
             GpioDataRegs.GPBCLEAR.bit.GPIO47 = 1; // TX.D
             GpioDataRegs.GPCCLEAR.bit.GPIO89 = 1; // TX.C
+            GpioDataRegs.GPACLEAR.bit.GPIO22 = 1; // TX.B
 
 #elif defined (BOARD_PREVIOUS)
         GpioDataRegs.GPBCLEAR.all = 0x00410040;   //bit 16 e 6 (48 e 38)
@@ -266,6 +322,7 @@ STATE(SM_TENSAO_DELAY){
 
             GpioDataRegs.GPBSET.bit.GPIO47 = 1; // TX.D
             GpioDataRegs.GPCSET.bit.GPIO89 = 1; // TX.C
+            GpioDataRegs.GPASET.bit.GPIO22 = 1; // TX.B
 
 #elif defined (BOARD_PREVIOUS)
         GpioDataRegs.GPBSET.all = 0x00410040;   //bit 16 e 6
@@ -286,11 +343,19 @@ STATE(SM_TENSAO_DELAY){
 STATE(SM_TENSAO_TX_SYNC){
     if(JUST_ARRIVED){
         //Send sync to current module
-        if(sec_transformer){
+        if(sec_transformer == 0){
+
             start_tx_frame(&tx_Fibra1, SYNC_FRAME, 0x0, 0x0);
-            start_tx_frame(&tx_Fibra2, SYNC_FRAME, 0x0, 0x0);
-        }else
-            start_tx_frame(&tx_Fibra1, SYNC_FRAME, 0x0, 0x0);
+            
+        }else if(sec_transformer == 1){
+
+             start_tx_frame(&tx_Fibra1, SYNC_FRAME, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra2, SYNC_FRAME, 0x0, 0x0);
+
+        }else if(sec_transformer == 2)
+             start_tx_frame(&tx_Fibra1, SYNC_FRAME, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra2, SYNC_FRAME, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra3, SYNC_FRAME, 0x0, 0x0);
 
 
         data_frame.voltage_u.pVoltage.A138_A =  -1;
@@ -310,6 +375,7 @@ STATE(SM_TENSAO_TX_SYNC){
         set_TXA();
         set_TXD();
         set_TXC();
+        set_TXB();
 
         configureSCI_sync();
         NEXT_STATE(SM_TENSAO_SYNC);
@@ -327,6 +393,7 @@ STATE(SM_TENSAO_SYNC){
 
         GpioDataRegs.GPBCLEAR.bit.GPIO47 = 1; // TX.D
         GpioDataRegs.GPCCLEAR.bit.GPIO89 = 1; // TX.C
+        GpioDataRegs.GPACLEAR.bit.GPIO22 = 1; // TX.B
 
 #elif defined (BOARD_PREVIOUS)
     GpioDataRegs.GPBCLEAR.all = 0x00010040;  //bit 16 e 6
@@ -338,8 +405,20 @@ STATE(SM_TENSAO_SYNC){
     while(!IS_FINISHED);
 
     DINT;
-    if(sec_transformer)
+    if(sec_transformer == 0)
     {
+        
+        i2 = contador - data_frame.voltage_u.voltage.sync_data.T1;
+        CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
+        CpuTimer2Regs.TCR.bit.TRB = 1;
+        CpuTimer2Regs.TCR.bit.TSS = 0;
+        GpioDataRegs.GPBSET.bit.GPIO47 = 1;
+        while(CpuTimer2Regs.TIM.all >= i2);
+
+    }
+    else if(sec_transformer == 1)
+    {
+       
         if(data_frame.voltage_u.voltage.sync_data.T1 > data_frame.voltage_u.voltage.sync_data.T2){
             i1 = contador - (data_frame.voltage_u.voltage.sync_data.T1 - data_frame.voltage_u.voltage.sync_data.T2);
             i2 = contador - data_frame.voltage_u.voltage.sync_data.T1;
@@ -377,14 +456,7 @@ STATE(SM_TENSAO_SYNC){
         #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
     #endif
             while(CpuTimer2Regs.TIM.all >= i2);
-        }
-    }else{
-        i2 = contador - data_frame.voltage_u.voltage.sync_data.T1;
-        CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
-        CpuTimer2Regs.TCR.bit.TRB = 1;
-        CpuTimer2Regs.TCR.bit.TSS = 0;
-        GpioDataRegs.GPBSET.bit.GPIO47 = 1;
-        while(CpuTimer2Regs.TIM.all >= i2);
+
     }
 
     //start capture
