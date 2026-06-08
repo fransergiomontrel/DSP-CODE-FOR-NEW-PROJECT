@@ -36,8 +36,12 @@ typedef struct {
     uint32_t T2,    ///< Valor m�dio utilizado para compensar a propaga��o na fibra 2.
     T2_Max,         ///< Valor m�ximo calculado na propaga��o da fibra 2.
     T2_Min;         ///< Valor minimo calculado na propaga��o da fibra 2.
+    uint32_t T3,    ///< Valor m�dio utilizado para compensar a propaga��o na fibra 2.
+    T3_Max,         ///< Valor m�ximo calculado na propaga��o da fibra 3.
+    T3_Min;         ///< Valor minimo calculado na propaga��o da fibra 3.
     float DP1;      ///< Desvio padr�o calculado da propaga��o da fibra 1, necessita revis�o.
     float DP2;      ///< Desvio padr�o calculado da propaga��o da fibra 2, necessita revis�o.
+    float DP3;      ///< Desvio padr�o calculado da propaga��o da fibra 3, necessita revis�o.
 } t_sync_data;
 
 typedef struct {

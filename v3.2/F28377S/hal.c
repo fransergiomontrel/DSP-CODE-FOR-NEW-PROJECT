@@ -17,11 +17,13 @@ volatile uint16_t edgeCount = 0;
 volatile uint16_t timer_end = 0;
 volatile uint32_t delay_T1 = 0;
 volatile uint32_t delay_T2 = 0;
+volatile uint32_t delay_T3 = 0;
 
 uint16_t acquisition_counter = 0;
 
 uint32_t delay_v_T1[syncMax];
 uint32_t delay_v_T2[syncMax];
+uint32_t delay_v_T3[syncMax];
 
 volatile uint16_t delayF = 0;
 
@@ -196,11 +198,16 @@ interrupt void syncPulse(){
 interrupt void doNothing(){
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1; // Issue PIE ACK
 }
+
 interrupt void xint2_isr(void){
     delay_T2 = CpuTimer1Regs.TIM.all;
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1; // Issue PIE ACK
 }
 
+interrupt void xint3_isr(void){
+    delay_T3 = CpuTimer1Regs.TIM.all;
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP12; // Issue PIE ACK
+}
 
 void activateUART_Ints(){
 //#define BOARD_NEW
@@ -307,6 +314,7 @@ void initInts(){
 
     PieVectTable.XINT1_INT = &syncPulse;
     PieVectTable.XINT2_INT = &xint2_isr;
+    PieVectTable.XINT3_INT = &xint3_isr;
     EDIS;
 
     EINT;  // Enable Global interrupt INTM
@@ -315,7 +323,7 @@ void initInts(){
     PieCtrlRegs.PIECTRL.bit.ENPIE = 1;  // Enable the PIE block
 
   PieCtrlRegs.PIEIER1.bit.INTx2 = 1;  // PIE Group 1, INT2 - ADCB1_INT
-//  PieCtrlRegs.PIEIER1.bit.INTx7 = 1;  // PIE Group 1, INT7 - TIMER0_INT
+    //PieCtrlRegs.PIEIER1.bit.INTx7 = 1;  // PIE Group 1, INT7 - TIMER0_INT
     PieCtrlRegs.PIEIER1.bit.INTx4 = 1;  // PIE Group 1, INT4 - XINT1_INT
     PieCtrlRegs.PIEIER1.bit.INTx5 = 1;  // PIE Group 1, INT5 - XINT2_INT
 
@@ -356,12 +364,17 @@ void initInts(){
 
 //  InputXbarRegs.INPUT5SELECT = TXC;     // X-Bar Input5 -> TXC
     InputXbarRegs.INPUT5SELECT = RXC;     // X-Bar Input5 -> RXC
+    InputXbarRegs.INPUT6SELECT = RXB;     // X-Bar Input6 -> RXB
     EDIS;
 
     XintRegs.XINT1CR.bit.ENABLE = 1;      // XINT1 - Enable
     XintRegs.XINT1CR.bit.POLARITY = 0x1;  // XINT1 - Polarity Conf.: 0x0, 0x2 -> Neg. Edge / 0x1 -> Pos. Edge / 0x3 -> Both
+
     XintRegs.XINT2CR.bit.ENABLE = 1;      // XINT2 - Enable
     XintRegs.XINT2CR.bit.POLARITY = 0x1;  // XINT2 - Polarity Conf.: 0x0, 0x2 -> Neg. Edge / 0x1 -> Pos. Edge / 0x3 -> Both
+
+    XintRegs.XINT3CR.bit.ENABLE = 1;      // XINT3 - Enable
+    XintRegs.XINT3CR.bit.POLARITY = 0x1;  // XINT3 - Polarity Conf.: 0x0, 0x2 -> Neg. Edge / 0x1 -> Pos. Edge / 0x3 -> Both
 }
 
 void togglePin(uint8_t pin){
@@ -817,6 +830,11 @@ void configureSCI_sync(void){
     GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXC, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_PULLUP);
+
+    GPIO_SetupPinMux(RXB, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
+    GPIO_SetupPinMux(TXB, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_PULLUP);
 }
 
 void configureSCI_UART(void){
@@ -830,6 +848,12 @@ void configureSCI_UART(void){
     GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXC, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_ASYNC);
+
+    GPIO_SetupPinMux(RXB, GPIO_MUX_CPU1, 3);
+    GPIO_SetupPinOptions(RXB, GPIO_INPUT, GPIO_PUSHPULL);
+    GPIO_SetupPinMux(TXB, GPIO_MUX_CPU1, 3);
+    GPIO_SetupPinOptions(TXB, GPIO_OUTPUT, GPIO_ASYNC);
+
 
     #if defined (TENSAO)
         GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 1);
