@@ -15,15 +15,18 @@ volatile uint8_t startCap = 0;
 volatile uint16_t Temp_index;
 volatile uint16_t edgeCount = 0;
 volatile uint16_t timer_end = 0;
+
 volatile uint32_t delay_T1 = 0;
 volatile uint32_t delay_T2 = 0;
 volatile uint32_t delay_T3 = 0;
+volatile uint32_t delay_T4 = 0;
 
 uint16_t acquisition_counter = 0;
 
 uint32_t delay_v_T1[syncMax];
 uint32_t delay_v_T2[syncMax];
 uint32_t delay_v_T3[syncMax];
+uint32_t delay_v_T4[syncMax];
 
 volatile uint16_t delayF = 0;
 
@@ -38,6 +41,12 @@ CiseiTxChannel tx_Fibra1;
 
 CiseiRxChannel rx_Fibra2;
 CiseiTxChannel tx_Fibra2;
+
+CiseiRxChannel rx_Fibra3;
+CiseiTxChannel tx_Fibra3;
+
+CiseiRxChannel rx_Fibra4;
+CiseiTxChannel tx_Fibra4;
 
 struct I2CMSG I2cMsgOut1 = { I2C_MSGSTAT_SEND_WITHSTOP,
                              I2C_SLAVE_ADDR,
@@ -209,6 +218,11 @@ interrupt void xint3_isr(void){
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP12; // Issue PIE ACK
 }
 
+interrupt void xint4_isr(void){
+    delay_T4 = CpuTimer1Regs.TIM.all;
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP12; // Issue PIE ACK
+}
+
 void activateUART_Ints(){
 //#define BOARD_NEW
 
@@ -315,6 +329,7 @@ void initInts(){
     PieVectTable.XINT1_INT = &syncPulse;
     PieVectTable.XINT2_INT = &xint2_isr;
     PieVectTable.XINT3_INT = &xint3_isr;
+    PieVectTable.XINT4_INT = &xint4_isr;
     EDIS;
 
     EINT;  // Enable Global interrupt INTM
@@ -322,7 +337,7 @@ void initInts(){
 
     PieCtrlRegs.PIECTRL.bit.ENPIE = 1;  // Enable the PIE block
 
-  PieCtrlRegs.PIEIER1.bit.INTx2 = 1;  // PIE Group 1, INT2 - ADCB1_INT
+    PieCtrlRegs.PIEIER1.bit.INTx2 = 1;  // PIE Group 1, INT2 - ADCB1_INT
     //PieCtrlRegs.PIEIER1.bit.INTx7 = 1;  // PIE Group 1, INT7 - TIMER0_INT
     PieCtrlRegs.PIEIER1.bit.INTx4 = 1;  // PIE Group 1, INT4 - XINT1_INT
     PieCtrlRegs.PIEIER1.bit.INTx5 = 1;  // PIE Group 1, INT5 - XINT2_INT
@@ -365,6 +380,7 @@ void initInts(){
 //  InputXbarRegs.INPUT5SELECT = TXC;     // X-Bar Input5 -> TXC
     InputXbarRegs.INPUT5SELECT = RXC;     // X-Bar Input5 -> RXC
     InputXbarRegs.INPUT6SELECT = RXB;     // X-Bar Input6 -> RXB
+    InputXbarRegs.INPUT13SELECT = RXA;     // X-Bar Input6 -> RXB
     EDIS;
 
     XintRegs.XINT1CR.bit.ENABLE = 1;      // XINT1 - Enable
@@ -375,6 +391,9 @@ void initInts(){
 
     XintRegs.XINT3CR.bit.ENABLE = 1;      // XINT3 - Enable
     XintRegs.XINT3CR.bit.POLARITY = 0x1;  // XINT3 - Polarity Conf.: 0x0, 0x2 -> Neg. Edge / 0x1 -> Pos. Edge / 0x3 -> Both
+
+    XintRegs.XINT4CR.bit.ENABLE = 1;      // XINT4 - Enable
+    XintRegs.XINT4CR.bit.POLARITY = 0x1;  // XINT4 - Polarity Conf.: 0x0, 0x2 -> Neg. Edge / 0x1 -> Pos. Edge / 0x3 -> Both
 }
 
 void togglePin(uint8_t pin){
@@ -1095,7 +1114,7 @@ void serial_D_Init(void)
 
 interrupt void smTX_A(void){
 #if defined (BOARD_NEW) && defined(TENSAO)
-    tx_interrupt(&tx_USB);
+    tx_interrupt(&tx_Fibra4);
 #else
     tx_interrupt(&tx_Fibra1);
 #endif
@@ -1112,7 +1131,7 @@ interrupt void smRX_A(void){
     if(SciaRegs.SCIRXST.bit.RXRDY){
         uint8_t Received = SciaRegs.SCIRXBUF.all;
 #if defined (BOARD_NEW) && defined(TENSAO)
-        rx_interrupt(&rx_USB, Received);
+        rx_interrupt(&rx_Fibra4, Received);
 #else
         rx_interrupt(&rx_Fibra1, Received);
 #endif
@@ -1121,7 +1140,7 @@ interrupt void smRX_A(void){
 }
 
 interrupt void smTX_B(void){
-    tx_interrupt(&tx_USB);
+    tx_interrupt(&tx_Fibra3);
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP9; // Issue PIE ACK
 }
 
@@ -1134,7 +1153,7 @@ interrupt void smRX_B(void){
     }
     if(ScibRegs.SCIRXST.bit.RXRDY){
         uint8_t Received = ScibRegs.SCIRXBUF.all;
-        rx_interrupt(&rx_USB, Received);
+        rx_interrupt(&rx_Fibra3, Received);
     }
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP9; // Issue PIE ACK
 }

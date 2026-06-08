@@ -34,10 +34,11 @@ uint8_t buffer_USB[256], buffer[256];
 int64_t timeBuffer;
 uint32_t T1, T2, T3, T4;
 uint16_t syncTimes = 0, sendPhasor = 0, CRC_retry = 0, sec_transformer = 0;
-int32_t delay_dT1 = 0, delay_dT2 = 0, delay_dT3 = 0;
-uint32_t delay__T1, delay__T2, delay__T3;
-uint32_t ordered_list_T[3];
-char ordered_list_Tname [3] = {'1', '2', '3'};
+int32_t delay_dT1 = 0, delay_dT2 = 0, delay_dT3 = 0, delay_dT4 = 0;
+uint32_t delay__T1, delay__T2, delay__T3, delay__T4;
+uint32_t ordered_list_T[4];
+
+char ordered_list_Tname [4] = {'1', '2', '3', '4'};
 
 long double Xre1 = 0.0, Xim1 = 0.0;
 long double Xre2 = 0.0, Xim2 = 0.0;
@@ -48,13 +49,14 @@ long double Xre6 = 0.0, Xim6 = 0.0;
 
 t_sync_frame syncPayload;
 
-extern volatile uint32_t delay_T1, delay_T2, delay_T3;
+extern volatile uint32_t delay_T1, delay_T2, delay_T3, delay_T4;
 extern volatile uint16_t timer_end;
 extern volatile uint8_t bufferFull;
 
 extern uint32_t delay_v_T1[syncMax];
 extern uint32_t delay_v_T2[syncMax];
 extern uint32_t delay_v_T3[syncMax];
+extern uint32_t delay_v_T4[syncMax];
 
 extern CiseiRxChannel rx_USB;
 extern CiseiTxChannel tx_USB;
@@ -64,6 +66,8 @@ extern CiseiRxChannel rx_Fibra2;
 extern CiseiTxChannel tx_Fibra2;
 extern CiseiRxChannel rx_Fibra3;
 extern CiseiTxChannel tx_Fibra3;
+extern CiseiRxChannel rx_Fibra4;
+extern CiseiTxChannel tx_Fibra4;
 
 extern volatile t_adc_results ADC_Results;
 
@@ -179,7 +183,7 @@ STATE(SM_TENSAO_WAIT){
 
 STATE(SM_TENSAO_DELAY){
     if(JUST_ARRIVED){
-        delay_dT1 = delay_dT2 = syncTimes = timer_end = CpuTimer1.InterruptCount = 0;
+        delay_dT1 = delay_dT2 = delay_dT3 = delay_dT4 = syncTimes = timer_end = CpuTimer1.InterruptCount = 0;
         CpuTimer1Regs.PRD.all = 200000; //CPU Timer Period Register
         CpuTimer1Regs.TCR.bit.TRB = 1;
 //        set_DEBUG1();
@@ -225,23 +229,65 @@ STATE(SM_TENSAO_DELAY){
 
                 }
         }
+            else if (sec_transformer == 3){
+                if((delay_T1 < 200000) && (delay_T2 < 200000) && (delay_T3 < 200000) && (delay_T4 < 200000)){
+
+                    delay__T1 =  200000 - delay_T1;
+                    delay__T2 =  200000 - delay_T2;
+                    delay__T3 =  200000 - delay_T3;
+                    delay__T4 =  200000 - delay_T4;
+                    delay_dT1 += delay__T1;
+                    delay_dT2 += delay__T2;
+                    delay_dT3 += delay__T3;
+                    delay_dT4 += delay__T4;
+                    delay_v_T1[syncTimes] = delay__T1;
+                    delay_v_T2[syncTimes] = delay__T2;
+                    delay_v_T3[syncTimes] = delay__T3;
+                    delay_v_T4[syncTimes] = delay__T4;
+                    syncTimes++;
+
+                }
+        }
 
 
         if(syncTimes == syncMax){
             int o = 0;
-            data_frame.voltage_u.voltage.sync_data.T1_Max = data_frame.voltage_u.voltage.sync_data.T2_Max = data_frame.voltage_u.voltage.sync_data.T3_Max = 0;
-            data_frame.voltage_u.voltage.sync_data.T1_Min = data_frame.voltage_u.voltage.sync_data.T2_Min = data_frame.voltage_u.voltage.sync_data.T3_Min = 9999999;
-            uint32_t dp1 = 0, dp2 = 0, dp3 = 0;
+            data_frame.voltage_u.voltage.sync_data.T1_Max = data_frame.voltage_u.voltage.sync_data.T2_Max =\
+            data_frame.voltage_u.voltage.sync_data.T3_Max = data_frame.voltage_u.voltage.sync_data.T4_Max = 0;
+
+            data_frame.voltage_u.voltage.sync_data.T1_Min = data_frame.voltage_u.voltage.sync_data.T2_Min =\
+            data_frame.voltage_u.voltage.sync_data.T3_Min = data_frame.voltage_u.voltage.sync_data.T4_Min =  9999999;
+
+            uint32_t dp1 = 0, dp2 = 0, dp3 = 0, dp4 = 0;
+
             data_frame.voltage_u.voltage.sync_data.T1 = (delay_dT1/(syncMax*2));//*(5E-9))/(1E-6);
-            if(sec_transformer == 1)
+            if(sec_transformer == 1){
+
                 data_frame.voltage_u.voltage.sync_data.T2 = (delay_dT2/(syncMax*2));//*(5E-9))/(1E-6);
-            else if(sec_transformer == 2)
+            }
+            else if(sec_transformer == 2){
+
                 data_frame.voltage_u.voltage.sync_data.T2 = (delay_dT2/(syncMax*2));//*(5E-9))/(1E-6);
                 data_frame.voltage_u.voltage.sync_data.T3 = (delay_dT3/(syncMax*2));//*(5E-9))/(1E-6);
 
                 ordered_list_T[0] = data_frame.voltage_u.voltage.sync_data.T1;
                 ordered_list_T[1] = data_frame.voltage_u.voltage.sync_data.T2;
                 ordered_list_T[2] = data_frame.voltage_u.voltage.sync_data.T3;
+
+            }
+            else if(sec_transformer == 3){
+
+                data_frame.voltage_u.voltage.sync_data.T2 = (delay_dT2/(syncMax*2));//*(5E-9))/(1E-6);
+                data_frame.voltage_u.voltage.sync_data.T3 = (delay_dT3/(syncMax*2));//*(5E-9))/(1E-6);
+                data_frame.voltage_u.voltage.sync_data.T4 = (delay_dT4/(syncMax*2));//*(5E-9))/(1E-6);
+
+                ordered_list_T[0] = data_frame.voltage_u.voltage.sync_data.T1;
+                ordered_list_T[1] = data_frame.voltage_u.voltage.sync_data.T2;
+                ordered_list_T[2] = data_frame.voltage_u.voltage.sync_data.T3;
+                ordered_list_T[3] = data_frame.voltage_u.voltage.sync_data.T4;
+
+            }
+                
 
             for(o = 0; o < syncMax; o++){
                 uint32_t val1 = delay_v_T1[o];
@@ -257,6 +303,7 @@ STATE(SM_TENSAO_DELAY){
                 }
 
                 else if(sec_transformer == 2){
+
                     uint32_t val2 = delay_v_T2[o];
                     data_frame.voltage_u.voltage.sync_data.T2_Max = MAX(data_frame.voltage_u.voltage.sync_data.T2_Max,val2);
                     data_frame.voltage_u.voltage.sync_data.T2_Min = MIN(data_frame.voltage_u.voltage.sync_data.T2_Min,val2);
@@ -269,15 +316,46 @@ STATE(SM_TENSAO_DELAY){
 
                 }
 
+                else if(sec_transformer == 3){
+
+                    uint32_t val2 = delay_v_T2[o];
+                    data_frame.voltage_u.voltage.sync_data.T2_Max = MAX(data_frame.voltage_u.voltage.sync_data.T2_Max,val2);
+                    data_frame.voltage_u.voltage.sync_data.T2_Min = MIN(data_frame.voltage_u.voltage.sync_data.T2_Min,val2);
+                    dp2 += pow(val2 - data_frame.voltage_u.voltage.sync_data.T2, 2);
+
+                    uint32_t val3 = delay_v_T3[o];
+                    data_frame.voltage_u.voltage.sync_data.T3_Max = MAX(data_frame.voltage_u.voltage.sync_data.T3_Max,val3);
+                    data_frame.voltage_u.voltage.sync_data.T3_Min = MIN(data_frame.voltage_u.voltage.sync_data.T3_Min,val3);
+                    dp3 += pow(val3 - data_frame.voltage_u.voltage.sync_data.T3, 2);
+
+                    uint32_t val4 = delay_v_T4[o];
+                    data_frame.voltage_u.voltage.sync_data.T4_Max = MAX(data_frame.voltage_u.voltage.sync_data.T4_Max,val4);
+                    data_frame.voltage_u.voltage.sync_data.T4_Min = MIN(data_frame.voltage_u.voltage.sync_data.T4_Min,val4);
+                    dp4 += pow(val4 - data_frame.voltage_u.voltage.sync_data.T4, 2);
+
+                }
+
+
             }
 
             data_frame.voltage_u.voltage.sync_data.DP1 = sqrtl(dp1/syncMax);
-            if(sec_transformer == 1)
+            if(sec_transformer == 1){
+
                 data_frame.voltage_u.voltage.sync_data.DP2 = sqrtl(dp2/syncMax);
-            else if(sec_transformer == 2)
+            }
+            else if(sec_transformer == 2){
+
                 data_frame.voltage_u.voltage.sync_data.DP2 = sqrtl(dp2/syncMax);
                 data_frame.voltage_u.voltage.sync_data.DP3 = sqrtl(dp3/syncMax);
 
+            }
+            else if(sec_transformer == 3){
+
+                data_frame.voltage_u.voltage.sync_data.DP2 = sqrtl(dp2/syncMax);
+                data_frame.voltage_u.voltage.sync_data.DP3 = sqrtl(dp3/syncMax);
+                data_frame.voltage_u.voltage.sync_data.DP4 = sqrtl(dp4/syncMax);
+
+            }
             NEXT_STATE(SM_TENSAO_TX_SYNC);
         }
     }
@@ -302,6 +380,15 @@ STATE(SM_TENSAO_DELAY){
              while(!(tx_end(&tx_Fibra1) && tx_end(&tx_Fibra2) && tx_end(&tx_Fibra3)));
 
         }
+        else if(sec_transformer == 3) {
+            
+             start_tx_frame(&tx_Fibra1, SYNC_DELAY, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra2, SYNC_DELAY, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra3, SYNC_DELAY, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra4, SYNC_DELAY, 0x0, 0x0);
+             while(!(tx_end(&tx_Fibra1) && tx_end(&tx_Fibra2) && tx_end(&tx_Fibra3) && tx_end(&tx_Fibra4)));
+
+        }
 
         START(100); //100 valor antigo
         while(!IS_FINISHED);
@@ -311,6 +398,7 @@ STATE(SM_TENSAO_DELAY){
             GpioDataRegs.GPBCLEAR.bit.GPIO47 = 1; // TX.D
             GpioDataRegs.GPCCLEAR.bit.GPIO89 = 1; // TX.C
             GpioDataRegs.GPACLEAR.bit.GPIO22 = 1; // TX.B
+            GpioDataRegs.GPACLEAR.bit.GPIO29 = 1; // TX.A
 
 #elif defined (BOARD_PREVIOUS)
         GpioDataRegs.GPBCLEAR.all = 0x00410040;   //bit 16 e 6 (48 e 38)
@@ -322,13 +410,14 @@ STATE(SM_TENSAO_DELAY){
         START(25);
         while(!IS_FINISHED);
 
-        delay_T1 = delay_T2 = (uint32_t)-1;
+        delay_T1 = delay_T2 = delay_T3 = delay_T4 =  (uint32_t)-1;
 
 #if defined (BOARD_NEW)
 
             GpioDataRegs.GPBSET.bit.GPIO47 = 1; // TX.D
             GpioDataRegs.GPCSET.bit.GPIO89 = 1; // TX.C
             GpioDataRegs.GPASET.bit.GPIO22 = 1; // TX.B
+            GpioDataRegs.GPASET.bit.GPIO29 = 1; // TX.A
 
 #elif defined (BOARD_PREVIOUS)
         GpioDataRegs.GPBSET.all = 0x00410040;   //bit 16 e 6
@@ -358,11 +447,20 @@ STATE(SM_TENSAO_TX_SYNC){
              start_tx_frame(&tx_Fibra1, SYNC_FRAME, 0x0, 0x0);
              start_tx_frame(&tx_Fibra2, SYNC_FRAME, 0x0, 0x0);
 
-        }else if(sec_transformer == 2)
+        }else if(sec_transformer == 2){
+
              start_tx_frame(&tx_Fibra1, SYNC_FRAME, 0x0, 0x0);
              start_tx_frame(&tx_Fibra2, SYNC_FRAME, 0x0, 0x0);
              start_tx_frame(&tx_Fibra3, SYNC_FRAME, 0x0, 0x0);
 
+        }else if(sec_transformer == 3){
+
+             start_tx_frame(&tx_Fibra1, SYNC_FRAME, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra2, SYNC_FRAME, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra3, SYNC_FRAME, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra4, SYNC_FRAME, 0x0, 0x0);
+
+        }
 
         data_frame.voltage_u.pVoltage.A138_A =  -1;
         data_frame.voltage_u.pVoltage.B138_A =  -1;
@@ -388,7 +486,7 @@ STATE(SM_TENSAO_TX_SYNC){
     }
 }
 
-uint32_t i1, i2, i3;
+uint32_t i1, i2, i3, i4;
 
 STATE(SM_TENSAO_SYNC){
     startCapture();
@@ -400,6 +498,7 @@ STATE(SM_TENSAO_SYNC){
         GpioDataRegs.GPBCLEAR.bit.GPIO47 = 1; // TX.D
         GpioDataRegs.GPCCLEAR.bit.GPIO89 = 1; // TX.C
         GpioDataRegs.GPACLEAR.bit.GPIO22 = 1; // TX.B
+        GpioDataRegs.GPACLEAR.bit.GPIO29 = 1; // TX.A
 
 #elif defined (BOARD_PREVIOUS)
     GpioDataRegs.GPBCLEAR.all = 0x00010040;  //bit 16 e 6
@@ -574,6 +673,309 @@ STATE(SM_TENSAO_SYNC){
         } 
 
         while(CpuTimer2Regs.TIM.all >= i3);
+    
+    }
+    else if(sec_transformer == 3)
+    {
+       
+        uint32_t temp;
+        char temp_name;
+        uint16_t i, j;
+
+        for (i = 0; i < 3; i++) {
+            for (j = i + 1; j < 4; j++) {
+                if (ordered_list_T[i] > ordered_list_T[j])
+                {
+
+                    temp = ordered_list_T[i];
+                    temp_name = ordered_list_Tname[i];
+
+                    ordered_list_T[i] = ordered_list_T[j];
+                    ordered_list_Tname[i] = ordered_list_Tname[j];
+
+                    ordered_list_T[j] = temp;
+                    ordered_list_Tname[j] = temp_name;
+
+                }
+            }
+        }
+        
+        i1 = contador - (ordered_list_T[1] - ordered_list_T[0]);
+        i2 = contador - (ordered_list_T[2] - ordered_list_T[1]);
+        i3 = contador - (ordered_list_T[3] - ordered_list_T[2]);
+        i4 = contador - ordered_list_T[3];
+
+        //Check which among 4 slaver IED has first bigger time propagation
+        switch (ordered_list_Tname[3])
+        {
+            case '1':
+
+                CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
+                CpuTimer2Regs.TCR.bit.TRB = 1;
+                CpuTimer2Regs.TCR.bit.TSS = 0;
+                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                while(CpuTimer2Regs.TIM.all >= i3);
+                //Check which among 2 slaver IED has first bigger time propagation
+                switch (ordered_list_Tname[2])
+                {
+                    case '2':
+                        GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '3':
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                            break;
+                            case '4':
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                            break;
+                        }
+                    break;
+                    case '3':
+                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '2':
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                            break;
+                            case '4':
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                            break;
+                        }
+                    break;
+                    case '4':
+                        GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '2':
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                            break;
+                            case '3':
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                            break;
+                        }
+                    break;
+                    
+                }
+
+                
+            break;
+
+            case '2':
+                
+                CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
+                CpuTimer2Regs.TCR.bit.TRB = 1;
+                CpuTimer2Regs.TCR.bit.TSS = 0;
+                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                while(CpuTimer2Regs.TIM.all >= i3);
+                //Check which among 2 slaver IED has first bigger time propagation
+                switch (ordered_list_Tname[2])
+                {
+                    case '1':
+                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '3':
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                            break;
+                            case '4':
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                            break;
+                        }
+                    break;
+                    case '3':
+                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '1':
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                            break;
+                            case '4':
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                            break;
+                        }
+                    break;
+                    case '4':
+                        GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '1':
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.A
+                            break;
+                            case '3':
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                            break;
+                        }
+                    break;
+                    
+                }
+
+            break;
+
+            case '3':
+                
+                CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
+                CpuTimer2Regs.TCR.bit.TRB = 1;
+                CpuTimer2Regs.TCR.bit.TSS = 0;
+                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                while(CpuTimer2Regs.TIM.all >= i3);
+                //Check which among 2 slaver IED has first bigger time propagation
+                switch (ordered_list_Tname[2])
+                {
+                    case '1':
+                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '2':
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                            break;
+                            case '4':
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                            break;
+                        }
+                    break;
+                    case '2':
+                        GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '1':
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                            break;
+                            case '4':
+                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                            break;
+                        }
+                    break;
+                    case '4':
+                        GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '1':
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                            break;
+                            case '2':
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                            break;
+                        }
+                    break;
+                    
+                }
+                
+            break;
+
+            case '4':
+                
+                CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
+                CpuTimer2Regs.TCR.bit.TRB = 1;
+                CpuTimer2Regs.TCR.bit.TSS = 0;
+                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                while(CpuTimer2Regs.TIM.all >= i3);
+                //Check which among 2 slaver IED has first bigger time propagation
+                switch (ordered_list_Tname[2])
+                {
+                    case '1':
+                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '2':
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                            break;
+                            case '3':
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                            break;
+                        }
+                    break;
+                    case '2':
+                        GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '1':
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                            break;
+                            case '3':
+                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                            break;
+                        }
+                    break;
+                    case '3':
+                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        while(CpuTimer2Regs.TIM.all >= i2);
+                        switch (ordered_list_Tname[1])
+                        {
+                            case '1':
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                            break;
+                            case '2':
+                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                                while(CpuTimer2Regs.TIM.all >= i1);
+                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                            break;
+                        }
+                    break;
+                    
+                }
+
+            break;
+            
+        } 
+
+        while(CpuTimer2Regs.TIM.all >= i4);
     
     }
 
