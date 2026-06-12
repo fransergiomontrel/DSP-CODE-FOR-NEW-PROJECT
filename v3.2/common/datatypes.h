@@ -21,12 +21,53 @@ typedef signed char int8_t;
 typedef unsigned char boolean;
 #endif 
 
-//! Pacote de dados do sincronismo.
-typedef struct {
-    uint32_t timestampi; ///< Timestamp enviado pelo PC para as interfaces.
-    uint16_t phasor; ///< Flag de transmiss�o de fasores (1) ou dados brutos (0, n�o utilizada).
-    uint16_t transformers; ///< True (1) - Dois transformadores False (0) - Um transformador.
-} t_sync_frame;
+#define TMS320_CHANNEL_FLOAT_COUNT    2U
+#define TMS320_ANALOG_FLOAT_COUNT     5U
+#define TMS320_CHANNEL_COUNT          6U
+#define TMS320_BOARD_COUNT            5U
+
+typedef union
+{
+    float retangular_float;
+    uint32_t retangular_int;
+}uint32_to_float_t;
+
+typedef union
+{
+    float ads1118_float;
+    uint32_t ads1118_int;
+}uint16_to_float_t;
+
+typedef struct __attribute__((__packed__))
+{
+    uint8_t command;
+    uint8_t number_ieds;
+    uint8_t frequency;
+}tms320_sync_frame_t;
+
+typedef struct __attribute__((__packed__))
+{
+    float channel1[TMS320_CHANNEL_FLOAT_COUNT];
+    float channel2[TMS320_CHANNEL_FLOAT_COUNT];
+    float channel3[TMS320_CHANNEL_FLOAT_COUNT];
+    float channel4[TMS320_CHANNEL_FLOAT_COUNT];
+    float channel5[TMS320_CHANNEL_FLOAT_COUNT];
+    float channel6[TMS320_CHANNEL_FLOAT_COUNT];
+    float analog[TMS320_ANALOG_FLOAT_COUNT];
+    int8_t alarm;
+    int8_t status;
+} tms320_board_data_t;
+
+typedef struct __attribute__((__packed__))
+{
+    tms320_board_data_t boards[TMS320_BOARD_COUNT];
+} tms320_data_t;
+
+typedef struct __attribute__((__packed__))
+{
+    tms320_data_t payload;
+    uint16_t crc;
+} tms320_uart_frame_t;
 
 //! Pacote das estatisticas do sincronismo entre interfaces.
 typedef struct {
@@ -73,45 +114,14 @@ typedef struct {
     uint16_t C230[1]; ///< Valores lidos na Fase C do Prim�rio.
 }t_adc_results;
 
-//! Pacote de transmiss�o dos dados brutos de tens�o.
-/*! Nesse pacote s�o enviados todos os pontos coletados al�m de informa��es adicionais do horario de recebimento do pedido pelo PC,
- *  estatisticas do sincronismo com as interfaces de corrente.
- *  \sa t_adc_results, t_sync_data, t_sync_frame
- *  \warning Pacote n�o utilizado na vers�o atual, ser� corrigido/removido em uma revis�o posterior.
- */
-typedef struct {
-    int16_t day;                ///< Vari�vel para armazenar o dia da requisi��o (1 - 31).
-    int16_t month;              ///< Vari�vel para armazenar o m�s da requisi��o (1 - 12).
-    int16_t year;               ///< Vari�vel para armazenar o ano da requisi��o.
-    int16_t hour;               ///< Vari�vel para armazenar a hora da requisi��o (0 - 23).
-    int16_t minute;             ///< Vari�vel para armazenar o minuto da requisi��o (0 - 59).
-    int16_t second;             ///< Vari�vel para armazenar o segundo da requisi��o (0 - 59).
-    int16_t msecond;            ///< Vari�vel para armazenar os milisegundos da requisi��o (0 - 999).
-    int16_t padding;            ///< Vari�vel para alinhamento de dados, valor fixo 0x1234.
-    uint32_t timer1;
-    uint32_t timer2;
-    t_sync_frame time;          ///< Vari�vel para armazenar o pacote de dados do sincronismo.
-    t_sync_data sync_data;      ///< Vari�vel para armazenar o pacote de estatisticas do sincronismo.
-    volatile t_adc_results* AD; ///< Vari�vel para armazenar os dados lidos pelos ADs.
-} t_voltage_data_frame;
-
 //! Pacote de transmiss�o dos fasores de tens�o.
 /*! Nesse pacote s�o enviados os fasores calculados, al�m de informa��es adicionais do horario de recebimento do pedido pelo PC,
  *  estatisticas do sincronismo com as interfaces de corrente.
- *  \sa t_sync_data, t_sync_frame
+ *  \sa t_sync_data, tms320_sync_frame_t
  */
 typedef struct {
-    int16_t day;            ///< Vari�vel para armazenar o dia da requisi��o (1 - 31).
-    int16_t month;          ///< Vari�vel para armazenar o m�s da requisi��o (1 - 12).
-    int16_t year;           ///< Vari�vel para armazenar o ano da requisi��o.
-    int16_t hour;           ///< Vari�vel para armazenar a hora da requisi��o (0 - 23).
-    int16_t minute;         ///< Vari�vel para armazenar o minuto da requisi��o (0 - 59).
-    int16_t second;         ///< Vari�vel para armazenar o segundo da requisi��o (0 - 59).
-    int16_t msecond;        ///< Vari�vel para armazenar os milisegundos da requisi��o (0 - 999).
-    int16_t padding;        ///< Vari�vel para alinhamento de dados, valor fixo 0x1234.
-    uint32_t timer1;
-    uint32_t timer2;
-    t_sync_frame time;      ///< Vari�vel para armazenar o pacote de dados do sincronismo.
+
+    tms320_sync_frame_t time;      ///< Vari�vel para armazenar o pacote de dados do sincronismo.
     t_sync_data sync_data;  ///< Vari�vel para armazenar o pacote de estatisticas do sincronismo.
     float A138_A; ///< Amplitude calculada da Fase A do Secund�rio.
     float A138_P; ///< Fase calculada da Fase A do Secund�rio.
@@ -126,27 +136,15 @@ typedef struct {
     float C230_A; ///< Amplitude calculada da Fase C do Prim�rio.
     float C230_P; ///< Fase calculada da Fase C do Prim�rio.
     uint16_t acquisition_counter; ///< Contador de aquisi��es para garantir a sincronia entre interfaces.
-} t_voltage_phasor_frame;
 
-//! Pacote de transmiss�o dos dados brutos de corrente.
-/*!
-*  \sa t_adc_results, t_sync_frame
-*  \warning Pacote n�o utilizado na vers�o atual, ser� corrigido/removido em uma revis�o posterior.
-*/
-typedef struct {
-    t_sync_frame timeC1;        ///< Vari�vel para armazenar o pacote de dados do sincronismo.
-    uint64_t d_timer;
-    t_temp_val temperatura;
-    volatile t_adc_results* AD; ///< Vari�vel para armazenar os dados lidos pelos ADs.
-} t_current_data_frame;
+} t_voltage_phasor_frame;
 
 //! Pacote de transmiss�o dos fasores de corrente.
 /*!
- *  \sa t_sync_frame
+ *  \sa tms320_sync_frame_t
  */
 typedef struct {
-    t_sync_frame timeC1;    ///< Vari�vel para armazenar o pacote de dados do sincronismo.
-    uint64_t d_timer;
+    
     t_temp_val temperatura; ///< Vari�vel para armazenar os valores lidos dos sensores de temperatura.
     float A138_A;           ///< Amplitude calculada da Fase A do Secund�rio.
     float A138_P;           ///< Fase calculada da Fase A do Secund�rio.
@@ -161,6 +159,7 @@ typedef struct {
     float C230_A;           ///< Amplitude calculada da Fase C do Prim�rio.
     float C230_P;           ///< Fase calculada da Fase C do Prim�rio.
     uint16_t acquisition_counter; ///< Contador de aquisi��es para garantir a sincronia entre interfaces.
+
 } t_current_phasor_frame;
 
 typedef struct {
@@ -173,5 +172,7 @@ typedef struct {
     uint16_t PTN2_2[100];
     uint16_t S420_2[100];
 } t_temp_data;
+
+
 
 #endif

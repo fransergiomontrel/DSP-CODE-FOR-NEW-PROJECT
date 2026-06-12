@@ -15,43 +15,21 @@
 #define SDAB  34 // I2C
 #define SCLB  35 // I2C
 
+//SCI A
+#define TXA   29 // TX.A FIBRA
+#define RXA   28 // RX.A FIBRA
 
-#if defined (BOARD_NEW)
-    //SCI A
-    #define TXA   29 // TX.A FIBRA
-    #define RXA   28 // RX.A FIBRA
+//SCI B
+#define TXB   22 // TX.B USB
+#define RXB   23 // RX.B USB
 
-    //SCI B
-    #define TXB   22 // TX.B USB
-    #define RXB   23 // RX.B USB
+//SCI C
+#define TXC   89 // TX.C FIBRA
+#define RXC   90 // RX.C FIBRA
 
-    //SCI C
-    #define TXC   89 // TX.C FIBRA
-    #define RXC   90 // RX.C FIBRA
-
-    // SCI D
-    #define TXD   47 // TX.D FIBRA
-    #define RXD   46 // RX.D FIBRA
-#elif defined (BOARD_PREVIOUS)
-    //SCI A
-    #define TXA   48 // TX.A FIBRA
-    #define RXA   49 // RX.A FIBRA
-
-    //SCI B
-    #define TXB   22 // TX.B USB
-    #define RXB   23 // RX.B USB
-
-    //SCI C
-    #define TXC   38 // TX.C FIBRA
-    #define RXC   39 // RX.C FIBRA
-
-    // SCI D
-    #define TXD   47 // TX.D FIBRA
-    #define RXD   46 // RX.D FIBRA
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
-
+// SCI D
+#define TXD   47 // TX.D FIBRA
+#define RXD   46 // RX.D FIBRA
 
 //I2C
 #define SDA   66

@@ -18,7 +18,7 @@
 ;//    that is defined in the F2837xS_Device.h file.  This macro
 ;//    will convert the number of microseconds specified
 ;//    into a loop count for use with this function.
-;//    This count will be based on the CPU frequency you specify.
+;//    This count will be based on the CPU frequencyuency you specify.
 ;//  3 - For the most accurate delay
 ;//    - Execute this function in 0 waitstate RAM.
 ;//    - Disable interrupts before calling the function

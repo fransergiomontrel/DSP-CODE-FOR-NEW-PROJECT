@@ -31,21 +31,11 @@ int main(void)
     memcpy(&RamfuncsRunStart, &RamfuncsLoadStart, (size_t)&RamfuncsLoadSize);
 #endif
 
-
-#ifdef CORRENTE
-    INIT(sm_corrente, SM_CORRENTE_INIT, 0);
-
-    while(1){
-        EXEC(sm_corrente);
-    }
-#endif
-#ifdef TENSAO
     INIT(sm_tensao, SM_TENSAO_INIT, 0);
 
     while(1){
         EXEC(sm_tensao);
     }
-#endif
 
 	return 0;
 }

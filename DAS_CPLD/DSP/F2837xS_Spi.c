@@ -48,9 +48,9 @@
 
 //
 // Calculate BRR: 7-bit baud rate register value
-// SPI CLK freq = 500 kHz
-// LSPCLK freq  = CPU freq / 4  (by default)
-// BRR          = (LSPCLK freq / SPI CLK freq) - 1
+// SPI CLK frequency = 500 kHz
+// LSPCLK frequency  = CPU frequency / 4  (by default)
+// BRR          = (LSPCLK frequency / SPI CLK frequency) - 1
 //
 #if CPU_FRQ_200MHZ
 #define SPI_BRR        (200E6 / 5E6) - 1

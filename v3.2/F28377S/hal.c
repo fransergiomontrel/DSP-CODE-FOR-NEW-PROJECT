@@ -103,8 +103,6 @@ void init_hal(void){
     EDIS;
 
     config_ADC();
-    ConfigureEPWM();
-    SetupADCsEpwm();
 
     EALLOW;
     CpuSysRegs.PCLKCR0.bit.TBCLKSYNC = 1;
@@ -136,71 +134,17 @@ void init_hal(void){
 }
 
 
-//==============================================================================
-// init_hal_C - Inicializacao do HAL para a Interface de Corrente
-//==============================================================================
-void init_hal_C(void){
-    
-    sysInit();
-    GPIOInit();
-
-    EALLOW;
-    CpuSysRegs.PCLKCR0.bit.TBCLKSYNC = 0;
-    EDIS;
-
-    config_ADC();
-    ConfigureEPWM();
-    SetupADCsEpwm();
-
-    EALLOW;
-    CpuSysRegs.PCLKCR0.bit.TBCLKSYNC = 1;
-    EDIS;
-
-    configTimer();
-
-    initInts();
-
-#if defined (BOARD_NEW)
-    serial_D_Init(); // Placa nova
-#elif defined (BOARD_PREVIOUS)
-    serial_A_Init(); // Placa anterior (que estava em uso)
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
-
-    bufferFull = Temp_index = 0;
-    resetResultBuffer();
-
-//    tx_A_byte(0x01);
-//    tx_D_byte(0x01);
-
-    SpiaRegs.SPIFFTX.all = 0xE040;
-    SpiaRegs.SPIFFRX.all = 0x2044;
-    SpiaRegs.SPIFFCT.all = 0x0;
-
-    InitSpi();
-}
-
 interrupt void syncPulse(){
     delay_T1 = CpuTimer1Regs.TIM.all;
     if(delayF){
-#if defined (BOARD_NEW)
         GpioDataRegs.GPBDAT.bit.GPIO47 = 1; // Placa Nova
-#elif defined (BOARD_PREVIOUS)
-        GpioDataRegs.GPBDAT.bit.GPIO48 = 1; // Placa Anterior
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
-
     }
     if(startCap){
         GPIO_WritePin(CONVST, 1);
         GPIO_WritePin(54, 0);
         acquisition_counter++;
-//        startCapture();
         startCap = 0;
     }
-
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1; // Issue PIE ACK
 }
 
@@ -224,18 +168,12 @@ interrupt void xint4_isr(void){
 }
 
 void activateUART_Ints(){
-//#define BOARD_NEW
 
-#if defined (BOARD_NEW)
     ScidRegs.SCICTL2.bit.TXINTENA   = 1;
     ScidRegs.SCICTL2.bit.RXBKINTENA = 1;
-#endif
-#if defined (BOARD_PREVIOUS) || (defined(BOARD_NEW) && defined(TENSAO))
+
     SciaRegs.SCICTL2.bit.TXINTENA   = 1;
     SciaRegs.SCICTL2.bit.RXBKINTENA = 1;
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
 
     ScibRegs.SCICTL2.bit.TXINTENA   = 1;
     ScibRegs.SCICTL2.bit.RXBKINTENA = 1;
@@ -245,31 +183,21 @@ void activateUART_Ints(){
 }
 
 void TXInts(uint8_t enable){
-#if defined (BOARD_NEW)
-    PieCtrlRegs.PIEIER8.bit.INTx8   = enable;   // SCI.D TX
-#endif
-#if defined (BOARD_PREVIOUS) || (defined(BOARD_NEW) && defined(TENSAO))
-    PieCtrlRegs.PIEIER9.bit.INTx2   = enable;   // SCI.A TX
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
 
+    PieCtrlRegs.PIEIER8.bit.INTx8   = enable;   // SCI.D TX
+    PieCtrlRegs.PIEIER9.bit.INTx2   = enable;   // SCI.A TX
     PieCtrlRegs.PIEIER9.bit.INTx4   = enable;   // SCI.B TX
     PieCtrlRegs.PIEIER8.bit.INTx6   = enable;   // SCI.C TX
+
 }
 
 void RXInts(uint8_t enable){
-#if defined (BOARD_NEW)
-    PieCtrlRegs.PIEIER8.bit.INTx7   = enable; // SCI.D RX
-#endif
-#if defined (BOARD_PREVIOUS) || (defined(BOARD_NEW) && defined(TENSAO))
-    PieCtrlRegs.PIEIER9.bit.INTx1   = enable; // SCI.A RX
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
 
+    PieCtrlRegs.PIEIER8.bit.INTx7   = enable; // SCI.D RX
+    PieCtrlRegs.PIEIER9.bit.INTx1   = enable; // SCI.A RX
     PieCtrlRegs.PIEIER9.bit.INTx3   = enable; // SCI.B RX
     PieCtrlRegs.PIEIER8.bit.INTx5   = enable; // SCI.C RX  
+
 }
 
 void resetResultBuffer(){
@@ -308,23 +236,17 @@ void initInts(){
     PieVectTable.ADCB1_INT = &readADC;
 //  PieVectTable.TIMER0_INT = &runADC;
 
-
-#if defined (BOARD_NEW)
-    PieVectTable.SCID_RX_INT = &smRX_D; // Interrupcao de Recepcao (RX) SCI D (por Almeida)
-    PieVectTable.SCID_TX_INT = &smTX_D; // Interrupcao de Transmissao (TX) SCI D (por Almeida)
-#endif
-#if defined (BOARD_PREVIOUS) || (defined(BOARD_NEW) && defined(TENSAO))
     PieVectTable.SCIA_RX_INT = &smRX_A;
     PieVectTable.SCIA_TX_INT = &smTX_A;
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
 
     PieVectTable.SCIB_RX_INT = &smRX_B;
     PieVectTable.SCIB_TX_INT = &smTX_B;
 
     PieVectTable.SCIC_RX_INT = &smRX_C;
     PieVectTable.SCIC_TX_INT = &smTX_C;
+
+    PieVectTable.SCID_RX_INT = &smRX_D; // Interrupcao de Recepcao (RX) SCI D (por Almeida)
+    PieVectTable.SCID_TX_INT = &smTX_D; // Interrupcao de Transmissao (TX) SCI D (por Almeida)
 
     PieVectTable.XINT1_INT = &syncPulse;
     PieVectTable.XINT2_INT = &xint2_isr;
@@ -345,16 +267,11 @@ void initInts(){
     PieCtrlRegs.PIEIER8.bit.INTx5 = 1;  // PIE Group 8, INT5 - SCIC_RX_INT
     PieCtrlRegs.PIEIER8.bit.INTx6 = 1;  // PIE Group 8, INT6 - SCIC_TX_INT
 
-#if defined (BOARD_NEW)
     PieCtrlRegs.PIEIER8.bit.INTx7 = 1;  // PIE Group 8, INT7 - SCID_RX_INT
     PieCtrlRegs.PIEIER8.bit.INTx8 = 1;  // PIE Group 8, INT8 - SCID_TX_INT
-#endif
-#if defined (BOARD_PREVIOUS) || (defined(BOARD_NEW) && defined(TENSAO))
+
     PieCtrlRegs.PIEIER9.bit.INTx1 = 1;  // PIE Group 9, INT1 - SCIA_RX_INT
     PieCtrlRegs.PIEIER9.bit.INTx2 = 1;  // PIE Group 9, INT2 - SCIA_TX_INT
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
 
     //NAO UTILIZADO NO MOMENTO
 //    PieCtrlRegs.PIEIER9.bit.INTx3 = 1;  // PIE Group 9, INT3 - SCIB_RX_INT
@@ -367,20 +284,11 @@ void initInts(){
     EINT;
 
     EALLOW;
-
-#if defined (BOARD_NEW)
-    InputXbarRegs.INPUT4SELECT = RXD;     // X-Bar Input4 -> RXD
-#elif defined (BOARD_PREVIOUS)
-//  InputXbarRegs.INPUT4SELECT = TXA;     // X-Bar Input4 -> TXA
     InputXbarRegs.INPUT4SELECT = RXA;     // X-Bar Input4 -> RXA
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
-
-//  InputXbarRegs.INPUT5SELECT = TXC;     // X-Bar Input5 -> TXC
     InputXbarRegs.INPUT5SELECT = RXC;     // X-Bar Input5 -> RXC
+    InputXbarRegs.INPUT4SELECT = RXD;     // X-Bar Input4 -> RXD
     InputXbarRegs.INPUT6SELECT = RXB;     // X-Bar Input6 -> RXB
-    InputXbarRegs.INPUT13SELECT = RXA;     // X-Bar Input6 -> RXB
+    
     EDIS;
 
     XintRegs.XINT1CR.bit.ENABLE = 1;      // XINT1 - Enable
@@ -425,20 +333,14 @@ void sysInit(void){
     CpuSysRegs.PCLKCR0.bit.HRPWM     = 1;
     CpuSysRegs.PCLKCR2.bit.EPWM1     = 1;
 
-#if defined (BOARD_NEW)
-    CpuSysRegs.PCLKCR7.bit.SCI_D     = 1;
-#endif
-#if defined (BOARD_PREVIOUS) || (defined(BOARD_NEW) && defined(TENSAO))
     CpuSysRegs.PCLKCR7.bit.SCI_A     = 1;
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
-
     CpuSysRegs.PCLKCR7.bit.SCI_B     = 1;
     CpuSysRegs.PCLKCR7.bit.SCI_C     = 1;
+    CpuSysRegs.PCLKCR7.bit.SCI_D     = 1;
+    
+    //CpuSysRegs.PCLKCR8.bit.SPI_A     = 1;
+    //CpuSysRegs.PCLKCR9.bit.I2C_B     = 1;
 
-    CpuSysRegs.PCLKCR8.bit.SPI_A     = 1;
-    CpuSysRegs.PCLKCR9.bit.I2C_B     = 1;
     CpuSysRegs.PCLKCR13.bit.ADC_A    = 0;
     CpuSysRegs.PCLKCR13.bit.ADC_B    = 1;
     CpuSysRegs.PCLKCR13.bit.ADC_C    = 0;
@@ -488,251 +390,27 @@ void GPIOInit(void){
     clr_DEBUG1();clr_DEBUG2();clr_DEBUG3();clr_DEBUG4();
     clr_DEBUG5();clr_DEBUG6();clr_DEBUG7();clr_DEBUG8();
 
-    //Configura pinos I2C LCD
-    GPIO_SetupPinMux(SDAB, GPIO_MUX_CPU1, 6);
-    GPIO_SetupPinOptions(SDAB, GPIO_OUTPUT, GPIO_PULLUP | GPIO_ASYNC);
-    GPIO_SetupPinMux(SCLB, GPIO_MUX_CPU1, 6);
-    GPIO_SetupPinOptions(SCLB, GPIO_OUTPUT, GPIO_PULLUP | GPIO_ASYNC);
 
-#if defined (BOARD_NEW)
-//SCI-D - FIBRA 2
     GPIO_SetupPinMux(RXD, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(RXD, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXD, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(TXD, GPIO_OUTPUT, GPIO_ASYNC);
-
-    #if defined (TENSAO)
-        GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 1);
-        GPIO_SetupPinOptions(RXA, GPIO_INPUT, GPIO_PUSHPULL);
-        GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 1);
-        GPIO_SetupPinOptions(TXA, GPIO_OUTPUT, GPIO_ASYNC);
-    #endif
-#elif defined (BOARD_PREVIOUS)
-//SCI-A - FIBRA 1
-    GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 6);
+  
+    GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 1);
     GPIO_SetupPinOptions(RXA, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 6);
+    GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 1);
     GPIO_SetupPinOptions(TXA, GPIO_OUTPUT, GPIO_ASYNC);
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
-
-    //SCI-B - USB
+    
     GPIO_SetupPinMux(RXB, GPIO_MUX_CPU1, 3);
     GPIO_SetupPinOptions(RXB, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXB, GPIO_MUX_CPU1, 3);
     GPIO_SetupPinOptions(TXB, GPIO_OUTPUT, GPIO_ASYNC);
 
-    //SCI-B - GPIO
-//    GPIO_SetupPinMux(RXB, GPIO_MUX_CPU1, 0);
-//    GPIO_SetupPinOptions(RXB, GPIO_INPUT, GPIO_PUSHPULL);
-//    GPIO_SetupPinMux(TXB, GPIO_MUX_CPU1, 0);
-//    GPIO_SetupPinOptions(TXB, GPIO_OUTPUT, GPIO_PULLUP);
-
-
-#if defined (BOARD_NEW)
-//SCI-C - FIBRA 2
     GPIO_SetupPinMux(RXC, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXC, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_ASYNC);
-#elif defined (BOARD_PREVIOUS)
-//SCI-C - FIBRA 2
-    GPIO_SetupPinMux(RXC, GPIO_MUX_CPU1, 5);
-    GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXC, GPIO_MUX_CPU1, 5);
-    GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_ASYNC);
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
 
-    //GBIC 1
-    GPIO_SetupPinMux(SFP1_TX_DIS, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(SFP1_TX_DIS, GPIO_OUTPUT, GPIO_PULLUP);
-    GPIO_SetupPinMux(SFP1_RX_FLT, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(SFP1_RX_FLT, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(SFP1_LOS, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(SFP1_LOS, GPIO_INPUT, GPIO_PUSHPULL);
-
-    //GBIC 2
-    GPIO_SetupPinMux(SFP2_TX_DIS, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(SFP2_TX_DIS, GPIO_OUTPUT, GPIO_PULLUP);
-    GPIO_SetupPinMux(SFP2_RX_FLT, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(SFP2_RX_FLT, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(SFP2_LOS, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(SFP2_LOS, GPIO_INPUT, GPIO_PUSHPULL);
-}
-
-void ConfigureEPWM(void){
-    Uint32 bF = BASE_FREQ * 1E6;
-    float32 spF = ( 1 / NUM_CYCLES ); //( TARGET_FREQ / NUM_CYCLES );
-    float32 auux = spF * 100; // spF * RESULTS_BUFFER_SIZE
-
-    float32 prd = bF/(2*auux);
-
-    EALLOW;
-    // Assumes ePWM clock is already enabled
-    EPwm1Regs.ETSEL.bit.SOCAEN  = 0;   // Disable SOC on A group
-    EPwm1Regs.ETSEL.bit.SOCASEL = 4;   // Select SOCA on up-count
-    EPwm1Regs.ETPS.bit.SOCAPRD  = 1;   // Generate pulse on 1st event
-
-    EPwm1Regs.ETSEL.bit.SOCBEN  = 0;   // Disable SOC on B group
-    EPwm1Regs.ETSEL.bit.SOCBSEL = 4;   // Select SOCB on up-count
-    EPwm1Regs.ETPS.bit.SOCBPRD  = 2;   // Generate pulse on 2nd event
-
-    EPwm1Regs.CMPA.bit.CMPA = (Uint16)(prd/2);
-    EPwm1Regs.CMPB.bit.CMPB = (Uint16)(prd/2);
-    EPwm1Regs.TBPRD =         (Uint16)(prd - 1);
-    EPwm1Regs.TBCTL.bit.CTRMODE   = 3;
-    EPwm1Regs.TBCTL.bit.HSPCLKDIV = 0;
-
-    prd = prd - (Uint32)prd;
-
-    EPwm1Regs.CMPCTL.bit.LOADAMODE = 1;
-    EPwm1Regs.HRCNFG.bit.HRLOAD    = 2;
-    EPwm1Regs.HRCNFG.bit.AUTOCONV  = 1;
-    EPwm1Regs.HRCNFG.bit.EDGMODE   = 3;
-    EPwm1Regs.HRPCTL.bit.TBPHSHRLOADE = 1;
-    EPwm1Regs.TBCTL.bit.PHSEN = 1;
-    EPwm1Regs.HRPCTL.bit.HRPE = 1;
-    EPwm1Regs.HRMSTEP.bit.HRMSTEP = 55;
-
-    EPwm1Regs.TBPRDHR = (Uint16)(prd * 256) << 8;
-
-    // freeze counter
-    EDIS;
-}
-
-void config_ADC(void){
-    EALLOW;
-
-    //
-    //write configurations
-    //
-    Uint16 PrescaleVal = 14; //set ADCCLK divider to /8
-//    Uint16 PrescaleVal = 11; //set ADCCLK divider to /6.5
-//    Uint16 PrescaleVal = 6; //set ADCCLK divider to /4
-//    Uint16 PrescaleVal = 0; //set ADCCLK divider to /1
-
-    AdcbRegs.ADCCTL2.bit.PRESCALE = PrescaleVal;
-    AdcSetMode(ADC_ADCB, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE);
-
-    AdcdRegs.ADCCTL2.bit.PRESCALE = PrescaleVal;
-    AdcSetMode(ADC_ADCD, ADC_RESOLUTION_12BIT, ADC_SIGNALMODE_SINGLE);
-
-    //
-    //Set pulse positions to late
-    //
-    AdcbRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-    AdcdRegs.ADCCTL1.bit.INTPULSEPOS = 1;
-
-    //
-    //power up the ADC
-    //
-    AdcbRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-    AdcdRegs.ADCCTL1.bit.ADCPWDNZ = 1;
-
-    //
-    //delay for 1ms to allow ADC time to power up
-    //
-    DELAY_US(1000);
-
-    EDIS;
-
-    Device_cal();
-}
-
-void SetupADCsEpwm(void){
-        Uint16 acqps;
-
-    //
-    // Determine minimum acquisition window (in SYSCLKS) based on resolution
-    //
-    if(ADC_RESOLUTION_12BIT == AdcbRegs.ADCCTL2.bit.RESOLUTION)
-    {
-        acqps = 14; //75ns
-    }
-    else //resolution is 16-bit
-    {
-//        acqps = 259; //1300ns
-        acqps = 129; //650ns
-//        acqps = 64;  //325ns
-//        acqps = 44; //225ns
-    }
-
-    //
-    //Select the channels to convert and end of conversion flag
-    //
-    EALLOW;
-
-    //IP2 - PTP
-    AdcdRegs.ADCSOC0CTL.bit.CHSEL = 0;
-    AdcdRegs.ADCSOC0CTL.bit.ACQPS = acqps;   //sample window is acqps+1 SYSCLK cycles
-    AdcdRegs.ADCSOC0CTL.bit.TRIGSEL = 5;     //trigger on ePWM1 SOCA
-//    AdcdRegs.ADCINTSEL1N2.bit.INT1SEL = 0; //end of SOC0 will set INT1 flag
-//    AdcdRegs.ADCINTSEL1N2.bit.INT1E = 0;   //enable INT1 flag
-//    AdcdRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
-
-    //IN2 - PTN1
-    AdcdRegs.ADCSOC1CTL.bit.CHSEL = 1;
-    AdcdRegs.ADCSOC1CTL.bit.ACQPS = acqps;   //sample window is acqps+1 SYSCLK cycles
-    AdcdRegs.ADCSOC1CTL.bit.TRIGSEL = 5;     //trigger on ePWM1 SOCA
-//    AdcdRegs.ADCINTSEL1N2.bit.INT2SEL = 1; //end of SOC1 will set INT2 flag
-//    AdcdRegs.ADCINTSEL1N2.bit.INT2E = 0;   //enable INT1 flag
-//    AdcdRegs.ADCINTFLGCLR.bit.ADCINT2 = 1; //make sure INT1 flag is cleared
-
-    //IN1 - PTN2
-    AdcdRegs.ADCSOC2CTL.bit.CHSEL = 3;
-    AdcdRegs.ADCSOC2CTL.bit.ACQPS = acqps;   //sample window is acqps+1 SYSCLK cycles
-    AdcdRegs.ADCSOC2CTL.bit.TRIGSEL = 5;     //trigger on ePWM1 SOCB
-//    AdcdRegs.ADCINTSEL3N4.bit.INT3SEL = 2; //end of SOC0 will set INT1 flag
-//    AdcdRegs.ADCINTSEL3N4.bit.INT3E = 0;   //enable INT1 flag
-//    AdcdRegs.ADCINTFLGCLR.bit.ADCINT3 = 1; //make sure INT1 flag is cleared
-
-    //IP1 - 4-20
-    AdcdRegs.ADCSOC3CTL.bit.CHSEL = 2;
-    AdcdRegs.ADCSOC3CTL.bit.ACQPS = acqps;   //sample window is acqps+1 SYSCLK cycles
-    AdcdRegs.ADCSOC3CTL.bit.TRIGSEL = 6;     //trigger on ePWM1 SOCB
-//    AdcdRegs.ADCINTSEL3N4.bit.INT4SEL = 3; //end of SOC1 will set INT2 flag
-//    AdcdRegs.ADCINTSEL3N4.bit.INT4E = 0;   //enable INT1 flag
-//    AdcdRegs.ADCINTFLGCLR.bit.ADCINT4 = 1; //make sure INT1 flag is cleared
-
-    //----------------------------------------------------------------------------------
-    //ADC IC
-
-    //IP4 - PTP
-    AdcbRegs.ADCSOC0CTL.bit.CHSEL = 14;
-    AdcbRegs.ADCSOC0CTL.bit.ACQPS = acqps;   //sample window is acqps+1 SYSCLK cycles
-    AdcbRegs.ADCSOC0CTL.bit.TRIGSEL = 5;     //trigger on ePWM1 SOCA
-//    AdcbRegs.ADCINTSEL1N2.bit.INT1SEL = 0; //end of SOC0 will set INT1 flag
-//    AdcbRegs.ADCINTSEL1N2.bit.INT1E = 0;   //enable INT1 flag
-//    AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
-
-    //IN4 - PTN1
-    AdcbRegs.ADCSOC1CTL.bit.CHSEL = 15;
-    AdcbRegs.ADCSOC1CTL.bit.ACQPS = acqps;   //sample window is acqps+1 SYSCLK cycles
-    AdcbRegs.ADCSOC1CTL.bit.TRIGSEL = 5;     //trigger on ePWM1 SOCA
-//    AdcbRegs.ADCINTSEL1N2.bit.INT2SEL = 1; //end of SOC1 will set INT2 flag
-//    AdcbRegs.ADCINTSEL1N2.bit.INT2E = 0;   //enable INT1 flag
-//    AdcbRegs.ADCINTFLGCLR.bit.ADCINT2 = 1; //make sure INT1 flag is cleared
-
-    //IN3 - PTN2
-    AdcbRegs.ADCSOC2CTL.bit.CHSEL = 3;
-    AdcbRegs.ADCSOC2CTL.bit.ACQPS = acqps;   //sample window is acqps+1 SYSCLK cycles
-    AdcbRegs.ADCSOC2CTL.bit.TRIGSEL = 5;     //trigger on ePWM1 SOCA
-//    AdcbRegs.ADCINTSEL3N4.bit.INT3SEL = 2; //end of SOC0 will set INT1 flag
-//    AdcbRegs.ADCINTSEL3N4.bit.INT3E = 0;   //enable INT1 flag
-//    AdcbRegs.ADCINTFLGCLR.bit.ADCINT3 = 1; //make sure INT1 flag is cleared
-
-    //IP3 - 4-20
-    AdcbRegs.ADCSOC3CTL.bit.CHSEL = 2;
-    AdcbRegs.ADCSOC3CTL.bit.ACQPS = acqps; //sample window is acqps+1 SYSCLK cycles
-    AdcbRegs.ADCSOC3CTL.bit.TRIGSEL = 6;   //trigger on ePWM1 SOCB
-    AdcbRegs.ADCINTSEL1N2.bit.INT1SEL = 3; //end of SOC3 will set INT1 flag
-    AdcbRegs.ADCINTSEL1N2.bit.INT1E = 1;   //enable INT1 flag
-    AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //make sure INT1 flag is cleared
-    
-    EDIS;
 }
 
 void tx_A_byte(uint8_t b){
@@ -796,7 +474,6 @@ void configTimer(void){
     CpuTimer0Regs.TPRH.all = 0;     //CPU Timer Prescale Register High
     CpuTimer0Regs.TCR.bit.TSS = 0;      //CPU Timer stop status bit
 
-
     CpuTimer1Regs.PRD.all = 200000; //CPU Timer Period Register
     CpuTimer1Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
     CpuTimer1Regs.TCR.bit.FREE = 1; //CPU Timer Free Run
@@ -822,78 +499,50 @@ void resetTimer0(void){
 }
 
 void configureSCI_sync(void){
-#if defined (BOARD_NEW)
-    GPIO_SetupPinMux(RXD, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(RXD, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXD, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(TXD, GPIO_OUTPUT, GPIO_PULLUP);
 
-#if defined (TENSAO)
-    GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(RXA, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(TXA, GPIO_OUTPUT, GPIO_PULLUP);
-#endif
-
-#elif defined (BOARD_PREVIOUS)
     GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(RXA, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(TXA, GPIO_OUTPUT, GPIO_PULLUP);
 
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
+    GPIO_SetupPinMux(RXB, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
+    GPIO_SetupPinMux(TXB, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_PULLUP);
 
     GPIO_SetupPinMux(RXC, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXC, GPIO_MUX_CPU1, 0);
     GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_PULLUP);
 
-    GPIO_SetupPinMux(RXB, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXB, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_PULLUP);
+    GPIO_SetupPinMux(RXD, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(RXD, GPIO_INPUT, GPIO_PUSHPULL);
+    GPIO_SetupPinMux(TXD, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(TXD, GPIO_OUTPUT, GPIO_PULLUP);
+
 }
 
 void configureSCI_UART(void){
-#if defined (BOARD_NEW)
-    GPIO_SetupPinMux(RXD, GPIO_MUX_CPU1, 6);
-    GPIO_SetupPinOptions(RXD, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXD, GPIO_MUX_CPU1, 6);
-    GPIO_SetupPinOptions(TXD, GPIO_OUTPUT, GPIO_ASYNC);
 
-    GPIO_SetupPinMux(RXC, GPIO_MUX_CPU1, 6);
-    GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXC, GPIO_MUX_CPU1, 6);
-    GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_ASYNC);
+    GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 1);
+    GPIO_SetupPinOptions(RXA, GPIO_INPUT, GPIO_PUSHPULL);
+    GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 1);
+    GPIO_SetupPinOptions(TXA, GPIO_OUTPUT, GPIO_ASYNC);
 
     GPIO_SetupPinMux(RXB, GPIO_MUX_CPU1, 3);
     GPIO_SetupPinOptions(RXB, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXB, GPIO_MUX_CPU1, 3);
     GPIO_SetupPinOptions(TXB, GPIO_OUTPUT, GPIO_ASYNC);
 
-
-    #if defined (TENSAO)
-        GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 1);
-        GPIO_SetupPinOptions(RXA, GPIO_INPUT, GPIO_PUSHPULL);
-        GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 1);
-        GPIO_SetupPinOptions(TXA, GPIO_OUTPUT, GPIO_ASYNC);
-    #endif
-
-#elif defined (BOARD_PREVIOUS)
-    GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 6);
-    GPIO_SetupPinOptions(RXA, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 6);
-    GPIO_SetupPinOptions(TXA, GPIO_OUTPUT, GPIO_ASYNC);
-
-    GPIO_SetupPinMux(RXC, GPIO_MUX_CPU1, 5);
+    GPIO_SetupPinMux(RXC, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(RXC, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXC, GPIO_MUX_CPU1, 5);
+    GPIO_SetupPinMux(TXC, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_ASYNC);
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
+
+    GPIO_SetupPinMux(RXD, GPIO_MUX_CPU1, 6);
+    GPIO_SetupPinOptions(RXD, GPIO_INPUT, GPIO_PUSHPULL);
+    GPIO_SetupPinMux(TXD, GPIO_MUX_CPU1, 6);
+    GPIO_SetupPinOptions(TXD, GPIO_OUTPUT, GPIO_ASYNC);
 
 }
 
@@ -903,24 +552,6 @@ void startCapture(void){
 }
 
 uint32_t now(void){
-// Temporizador de 64 bits
-//
-//    static uint64_t last_time = 0;
-//    static uint32_t count_up = 0;
-//    uint32_t actual_time = CpuTimer0Regs.TIM.all;
-//    actual_time = actual_time & 0x0000FFFF;
-//
-//    uint64_t ret = (((uint64_t)count_up) << 32) | actual_time;
-//
-//    if (ret >= last_time)
-//        last_time = ret;
-//    else
-//    {
-//        count_up++;
-//        ret = (((uint64_t)count_up) << 32) | actual_time;
-//    }
-//
-//    return (ret);
 
     return (CpuTimer0Regs.TIM.all);
 }
@@ -1113,11 +744,9 @@ void serial_D_Init(void)
 
 
 interrupt void smTX_A(void){
-#if defined (BOARD_NEW) && defined(TENSAO)
+
     tx_interrupt(&tx_Fibra4);
-#else
-    tx_interrupt(&tx_Fibra1);
-#endif
+
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP9; // Issue PIE ACK
 }
 
@@ -1130,11 +759,9 @@ interrupt void smRX_A(void){
     }
     if(SciaRegs.SCIRXST.bit.RXRDY){
         uint8_t Received = SciaRegs.SCIRXBUF.all;
-#if defined (BOARD_NEW) && defined(TENSAO)
+
         rx_interrupt(&rx_Fibra4, Received);
-#else
-        rx_interrupt(&rx_Fibra1, Received);
-#endif
+
     }
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP9; // Issue PIE ACK
 }
@@ -1148,7 +775,6 @@ interrupt void smRX_B(void){
     if(ScibRegs.SCIRXST.bit.BRKDT || ScibRegs.SCIRXST.bit.RXERROR){
         ScibRegs.SCICTL1.bit.SWRESET = 0;
         ScibRegs.SCICTL1.bit.SWRESET = 1;
-//        serialInit();
         tx_B_byte(0xFF);
     }
     if(ScibRegs.SCIRXST.bit.RXRDY){
@@ -1220,43 +846,6 @@ interrupt void smRX_D(void)
 
 //volatile int estado_ant = 0, estado_at = 0, start_save = 0;
 
-interrupt void readADC(void){
-    if(Temp_index == 0){
-        set_LED2();
-    }
-
-    Temp_Results.PTP_1[Temp_index]  = AdcdResultRegs.ADCRESULT0;
-    Temp_Results.PTN1_1[Temp_index] = AdcdResultRegs.ADCRESULT1;
-    Temp_Results.S420_1[Temp_index] = AdcdResultRegs.ADCRESULT2;
-    Temp_Results.PTN2_1[Temp_index] = AdcdResultRegs.ADCRESULT3;
-
-    Temp_Results.PTP_2[Temp_index]  = AdcbResultRegs.ADCRESULT0;
-    Temp_Results.PTN1_2[Temp_index] = AdcbResultRegs.ADCRESULT1;
-    Temp_Results.S420_2[Temp_index] = AdcbResultRegs.ADCRESULT2;
-    Temp_Results.PTN2_2[Temp_index] = AdcbResultRegs.ADCRESULT3;
-
-    Temp_index++;
-
-
-    AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //clear INT1 flag
-    if(1 == AdcbRegs.ADCINTOVF.bit.ADCINT1)
-    {
-        AdcbRegs.ADCINTOVFCLR.bit.ADCINT1 = 1; //clear INT1 overflow flag
-        AdcbRegs.ADCINTFLGCLR.bit.ADCINT1 = 1; //clear INT1 flag
-    }
-    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
-
-    if(Temp_index == 100){
-        bufferFull = 1;
-        EPwm1Regs.TBCTL.bit.CTRMODE = 3; //freeze counter
-        EPwm1Regs.ETSEL.bit.SOCAEN = 0;  //disable SOCA
-        EPwm1Regs.ETSEL.bit.SOCBEN = 0;  //disable SOCA
-        EPwm1Regs.TBCTR = 0x0000;
-        Temp_index = 0;
-        clr_LED2();
-    }
-}
-
 void setA138(uint16_t index, uint16_t value){
     ADC_Results.A138[index] = value;
 }
@@ -1298,6 +887,297 @@ void quickSort(uint16_t vet[], int16_t esq, int16_t dir) {
     }
 }
 
+
+void phasors_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data)
+{
+    if ((rx_getFrameType(&rx_Fibra) == CURRENT_PHASOR_X) && (rx_Fibra->frameReceived))
+    {
+        uint32_to_float_t conv_to_float;
+
+        //Real part conversion to float of channel 1
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[3]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[2]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[1]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[0]));
+        board_data->channel1[0] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
+        board_data->channel1[0] = board_data->channel1[0]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+        //Imaginary part conversion to float of channel 1
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[7]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[6]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[5]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[4]));
+        board_data->channel1[1] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
+        board_data->channel1[1] = board_data->channel1[1]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+        
+        //Real part conversion to float of channel 2
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[11]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[10]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[9]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[8]));
+        board_data->channel2[0] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
+        board_data->channel2[0] = board_data->channel2[0]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+        //Imaginary part conversion to float of channel 2
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[15]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[14]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[13]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[12]));
+        board_data->channel2[1] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
+        board_data->channel2[1] = board_data->channel2[1]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+        
+        //Real part conversion to float of channel 3
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[19]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[18]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[17]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[16]));
+        board_data->channel3[0] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
+        board_data->channel3[0] = board_data->channel3[0]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+        //Imaginary part conversion to float of channel 3
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[23]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[22]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[21]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[20]));
+        board_data->channel3[1] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
+        board_data->channel3[1] = board_data->channel3[1]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+
+        //Real part conversion to float of channel 4
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[27]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[26]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[25]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[24]));
+        board_data->channel4[0] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
+        board_data->channel4[0] = board_data->channel4[0]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+        //Imaginary part conversion to float of channel 4
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[31]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[30]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[29]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[28]));
+        board_data->channel4[1] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
+        board_data->channel4[1] = board_data->channel4[1]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+
+        //Real part conversion to float of channel 5
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[35]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[34]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[33]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[32]));
+        board_data->channel5[0] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
+        board_data->channel5[0] = board_data->channel5[0]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+        //Imaginary part conversion to float of channel 5
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[39]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[38]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[37]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[36]));
+        board_data->channel5[1] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
+        board_data->channel5[1] = board_data->channel5[1]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+
+        //Real part conversion to float of channel 6
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[43]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[42]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[41]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[40]));
+        board_data->channel6[0] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
+        board_data->channel6[0] = board_data->channel6[0]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+        //Imaginary part conversion to float of channel 6
+        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[47]) << 24) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[46]) << 16) |
+                                       (((uint32_t)rx_Fibra->pBuffer[45]) << 8) | 
+                                       (((uint32_t)rx_Fibra->pBuffer[44]));
+        board_data->channel6[1] = conv_to_float.retangular_float;
+        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
+        board_data->channel6[1] = board_data->channel6[1]/(LUT_FLOAT_FACTOR*RESULTS_BUFFER_SIZE);
+
+        board_data->alarm = 0;
+        board_data->status = 1;
+    }
+
+    else
+    {
+        //NO_FRAME
+        if((rx_getFrameType(&rx_Fibra) != CURRENT_PHASOR_X) && (!rx_checkframeReceived(&rx_Fibra)))
+        {
+            board_data->alarm = NO_FRAME;
+        }
+        //INCOMPLETE_FRAME
+        else if((rx_getFrameType(&rx_Fibra) == CURRENT_PHASOR_X) && (!rx_checkframeReceived(&rx_Fibra)))
+        {
+            board_data->alarm = INCOMPLETE_FRAME;
+        }
+        //WRONG_FRAME
+        else if((rx_checkframeReceived(&rx_Fibra)) && (rx_getFrameType(&rx_Fibra) != CURRENT_PHASOR_X))
+        {
+            board_data->alarm = WRONG_FRAME;            
+        }
+    }
+    
+}
+
+void phasors_ret_to_polar(tms320_board_data_t * board_data)
+{
+
+    float Xre1 = board_data->channel1[0];
+    float Xim1 = board_data->channel1[1];
+    float Xre2 = board_data->channel2[0]; 
+    float Xim2 = board_data->channel2[1];
+    float Xre3 = board_data->channel3[0]; 
+    float Xim3 = board_data->channel3[1];
+    float Xre4 = board_data->channel4[0]; 
+    float Xim4 = board_data->channel4[1];
+    float Xre5 = board_data->channel5[0];
+    float Xim5 = board_data->channel5[1];
+    float Xre6 = board_data->channel6[0];
+    float Xim6 = board_data->channel6[1];
+
+    //Store phasors modules
+    board_data->channel1[0] =  (float)(sqrtl(powl(Xre1, 2.0) + powl(Xim1, 2.0)));
+    board_data->channel2[0] =  (float)(sqrtl(powl(Xre2, 2.0) + powl(Xim2, 2.0)));
+    board_data->channel3[0] =  (float)(sqrtl(powl(Xre3, 2.0) + powl(Xim3, 2.0)));
+    board_data->channel4[0] =  (float)(sqrtl(powl(Xre4, 2.0) + powl(Xim4, 2.0)));
+    board_data->channel5[0] =  (float)(sqrtl(powl(Xre5, 2.0) + powl(Xim5, 2.0)));
+    board_data->channel6[0] =  (float)(sqrtl(powl(Xre6, 2.0) + powl(Xim6, 2.0)));
+
+    //Store phasors phases
+    board_data->channel1[1] = (float)(atan2l(Xim1, Xre1)*180)/M_PI;
+    board_data->channel2[1] = (float)(atan2l(Xim2, Xre2)*180)/M_PI;
+    board_data->channel3[1] = (float)(atan2l(Xim3, Xre3)*180)/M_PI;
+    board_data->channel4[1] = (float)(atan2l(Xim4, Xre4)*180)/M_PI;
+    board_data->channel5[1] = (float)(atan2l(Xim5, Xre5)*180)/M_PI;
+    board_data->channel6[1] = (float)(atan2l(Xim6, Xre6)*180)/M_PI;
+
+}
+
+void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data)
+{
+    if ((rx_getFrameType(&rx_Fibra) == CURRENT_PHASOR_X) && (rx_Fibra->frameReceived))
+    {
+        crc16_init();
+        uint16_t CRC_calc;
+
+        uint16_to_float_t conv_to_float;
+        uint8_t i;
+        for(i = 0; i < TMS320_ANALOG_FLOAT_COUNT;i++){
+        
+            crc16_data(rx_Fibra->pBuffer[48 + 2*i]);
+            CRC_calc = crc16_data(rx_Fibra->pBuffer[49 + 2*i]);
+
+            conv_to_float.ads1118_int = (((uint16_t)rx_Fibra->pBuffer[49 + 2*i]) << 8) | 
+                                       (((uint16_t)rx_Fibra->pBuffer[48 + 2*i]));
+            board_data->analog[i] = conv_to_float.ads1118_float;
+
+        }
+
+        conv_to_float.ads1118_int = (((uint16_t)rx_Fibra->pBuffer[59]) << 8) | 
+                                       (((uint16_t)rx_Fibra->pBuffer[58]));
+
+        if(CRC_calc != conv_to_float.ads1118_int)
+        {
+            board_data->alarm = ADS1118_CRC_NACK;
+        }
+    }
+    rx_checkframeReceived(&rx_Fibra);
+}
+
+void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_uart_frame)
+{
+    crc16_init();
+    uint8_t i;
+    uint8_t j;
+    uint32_t tmp_1;
+    uint32_t tmp_2;
+    uint16_t CRC_calc;
+
+    for(i = 0; i < TMS320_BOARD_COUNT; i++)
+    {
+        memcpy(&tmp_1, &(tms320_data->boards[i].channel1[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_data->boards[i].channel1[1]), sizeof(tmp_2));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_1)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_1)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_1)));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_2)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_2)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_2)));
+
+        memcpy(&tmp_1, &(tms320_data->boards[i].channel2[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_data->boards[i].channel2[1]), sizeof(tmp_2));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_1)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_1)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_1)));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_2)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_2)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_2)));
+
+        memcpy(&tmp_1, &(tms320_data->boards[i].channel3[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_data->boards[i].channel3[1]), sizeof(tmp_2));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_1)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_1)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_1)));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_2)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_2)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_2)));
+
+        memcpy(&tmp_1, &(tms320_data->boards[i].channel4[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_data->boards[i].channel4[1]), sizeof(tmp_2));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_1)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_1)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_1)));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_2)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_2)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_2)));
+
+        memcpy(&tmp_1, &(tms320_data->boards[i].channel5[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_data->boards[i].channel5[1]), sizeof(tmp_2));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_1)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_1)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_1)));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_2)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_2)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_2)));
+
+        memcpy(&tmp_1, &(tms320_data->boards[i].channel6[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_data->boards[i].channel6[1]), sizeof(tmp_2));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_1)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_1)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_1)));
+        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
+        crc16_data((uint16_t)((0x0000FF00)&(tmp_2)));
+        crc16_data((uint16_t)((0x00FF0000)&(tmp_2)));
+        crc16_data((uint16_t)((0xFF000000)&(tmp_2)));
+
+        for(j = 0; j < TMS320_ANALOG_FLOAT_COUNT; j++)
+        {
+            memcpy(&tmp_1, &(tms320_data->boards[i].analog[j]), sizeof(tmp_1));
+            crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
+            crc16_data((uint16_t)((0x0000FF00)&(tmp_1)));
+            crc16_data((uint16_t)((0x00FF0000)&(tmp_1)));
+            CRC_calc = crc16_data((uint16_t)((0xFF000000)&(tmp_1)));
+        }
+    }
+    memcpy(&(tms320_uart_frame->payload), &tms320_data, sizeof(tms320_data_t));
+    tms320_uart_frame->crc = CRC_calc; 
+}
+
+
+
 float64 tempNTC(float res, uint16_t adc1, uint16_t adc2){
     const float64 beta = 3450.0;
     const float64 r0 = 330.0;
@@ -1314,3 +1194,4 @@ float64 tempNTC(float res, uint16_t adc1, uint16_t adc2){
 
     return (t-273.0);
 }
+

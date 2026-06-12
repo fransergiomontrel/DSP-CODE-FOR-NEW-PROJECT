@@ -35,6 +35,10 @@ uint8_t rx_frameReceived(CiseiRxChannel* rx, uint32_t* bytesReceived) {
 	return rx->frameReceived;
 }
 
+uint8_t rx_checkframeReceived(CiseiRxChannel* rx) {
+	return rx->frameReceived;
+}
+
 void init_rx_serial(CiseiRxChannel* rx, uint8_t* pBuffer, uint32_t nBytes) {
     rx->lock = 1;
 	rx->pBuffer = pBuffer;

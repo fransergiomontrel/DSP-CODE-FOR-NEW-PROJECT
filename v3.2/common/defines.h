@@ -36,14 +36,29 @@
 #ifndef DEFINES_h
 #define DEFINES_h
 
+#define IED_1 '1'
+#define IED_2 '2'
+#define IED_3 '3'
+#define IED_4 '4'
+
+#define NO_FRAME -1
+#define INCOMPLETE_FRAME -2
+#define WRONG_FRAME -3
+#define ADS1118_CRC_NACK -4
+
+#define NOM_FREQ_50HZ 50
+#define NOM_FREQ_60HZ 60
+
+#define NO_FIBER 0
+#define ONE_FIBER 1
+#define TWO_FIBERS 2
+#define THREE_FIBERS 3
+#define FOUR_FIBERS 4
+
 #define syncMax 256
 
-#define BOARD_NEW
-#define TENSAO
-//#define BOARD_PREVIOUS
-
-
-#define RESULTS_BUFFER_SIZE   (1*7215)  // Number of samples per acquisition
+#define RESULTS_BUFFER_SIZE   7215  // Number of samples per acquisition
+#define LUT_FLOAT_FACTOR   32767  // Number of samples per acquisition
 #define TARGET_FREQ           60        // Frequency of target signal (in Hz)
 #define BASE_FREQ             200       // Frequency of main processor clock (in MHz)
 #define NUM_CYCLES            (1*1)     // Number of cycles to acquire

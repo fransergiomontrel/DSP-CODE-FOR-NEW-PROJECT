@@ -6,7 +6,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "C:/Users/fransergio.carvalho/Downloads/ti-cgt-c2000_20.2.1.LTS/include",
-                "C:/DSP/DAS_CPLD/C2000Ware_6_00_01_00/device_support/f2837xs/common/include"
+                "C:/DSP/DAS_CPLD/C2000Ware_6_00_01_00/device_support/f2837xs/common/include",
+                "C:/DSP"
                 
             ],
             "defines": [

@@ -171,7 +171,7 @@ void InitSysCtrl(void)
     // in F2837xS_Examples.h.
     //
     // Note: The internal oscillator CANNOT be used as the PLL source if the
-    // PLLSYSCLK is configured to frequencies above 194 MHz.
+    // PLLSYSCLK is configured to frequencyuencies above 194 MHz.
     //
     //  PLLSYSCLK = (XTAL_OSC) * (IMULT + FMULT) / (PLLSYSCLKDIV)
     //
@@ -332,9 +332,9 @@ void InitFlash_Bank0(void)
 
     //
     // The default value of VREADST is good enough for the flash to power up
-    // properly at the INTOSC frequency. Below VREADST configuration covers up
-    // to the max frequency possible for this device. This is required for
-    // proper flash wake up at the higher frequencies if users put it to sleep
+    // properly at the INTOSC frequencyuency. Below VREADST configuration covers up
+    // to the max frequencyuency possible for this device. This is required for
+    // proper flash wake up at the higher frequencyuencies if users put it to sleep
     // for power saving reason.
     //
     Flash0CtrlRegs.FBAC.bit.VREADST = 0x14;
@@ -359,7 +359,7 @@ void InitFlash_Bank0(void)
     Flash0CtrlRegs.FRD_INTF_CTRL.bit.PREFETCH_EN = 0;
 
     //
-    // Set waitstates according to frequency
+    // Set waitstates according to frequencyuency
     //
     //      *CAUTION*
     // Minimum waitstates required for the flash operating at a given CPU rate
@@ -457,7 +457,7 @@ void InitFlash_Bank1(void)
     Flash1CtrlRegs.FRD_INTF_CTRL.bit.PREFETCH_EN = 0;
 
     //
-    // Set waitstates according to frequency
+    // Set waitstates according to frequencyuency
     //
     //      *CAUTION*
     // Minimum waitstates required for the flash operating at a given CPU rate
@@ -660,7 +660,7 @@ void DisableDog(void)
 // This function initializes the PLL registers.
 // Note:
 //  - The internal oscillator CANNOT be used as the PLL source if the
-//    PLLSYSCLK is configured to frequencies above 194 MHz.
+//    PLLSYSCLK is configured to frequencyuencies above 194 MHz.
 //
 //  - This function uses the Watchdog as a monitor for the PLL. The user
 //  watchdog settings will be modified and restored upon completion.  Function
@@ -783,7 +783,7 @@ void InitSysPll(Uint16 clock_source, Uint16 imult, Uint16 fmult, Uint16 divsel)
     }
 
     //
-    // Set divider to produce slower output frequency to limit current increase
+    // Set divider to produce slower output frequencyuency to limit current increase
     //
     if(divsel != PLLCLK_BY_126)
     {
@@ -823,7 +823,7 @@ void InitSysPll(Uint16 clock_source, Uint16 imult, Uint16 fmult, Uint16 divsel)
     intStatus = __disable_interrupts();
 
     //
-    // Configure for watchdog reset and to run at max frequency
+    // Configure for watchdog reset and to run at max frequencyuency
     //
     WdRegs.SCSR.all = 0x0;
     WdRegs.WDCR.all = 0x28;
@@ -1040,7 +1040,7 @@ void InitSysPll(Uint16 clock_source, Uint16 imult, Uint16 fmult, Uint16 divsel)
 
     //
     // 200 PLLSYSCLK delay to allow voltage regulator to stabilize prior
-    // to increasing entire system clock frequency.
+    // to increasing entire system clock frequencyuency.
     //
     asm(" RPT #200 || NOP");
 

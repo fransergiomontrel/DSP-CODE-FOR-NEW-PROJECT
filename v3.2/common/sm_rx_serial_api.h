@@ -3,11 +3,11 @@
 
 /**
  * @file
- * @brief Máquina de estados que implementa o processo de recepção do protocolo CISEI para comunicação entre módulos.
- * @details Esta máquina de estados é baseada em StateMachine e é orientada ao evento de interrupção serial. A cada byte recebido, a função rx_interrupt() é evocada.
- * O estado inicial é SM_RX_WAITING
+ * @brief Mï¿½quina de estados que implementa o processo de recepï¿½ï¿½o do protocolo CISEI para comunicaï¿½ï¿½o entre mï¿½dulos.
+ * @details Esta mï¿½quina de estados ï¿½ baseada em StateMachine e ï¿½ orientada ao evento de interrupï¿½ï¿½o serial. A cada byte recebido, a funï¿½ï¿½o rx_interrupt() ï¿½ evocada.
+ * O estado inicial ï¿½ SM_RX_WAITING
  * @author Afonso Ferreira Miguel.
- * \image html SM_RX.png "Diagramas de estado do processo de recepção"
+ * \image html SM_RX.png "Diagramas de estado do processo de recepï¿½ï¿½o"
 */
 
 #include "sm.h"
@@ -15,61 +15,63 @@
 #include "sm_serial_api.h"
 
 /**
- * @brief Informações sobre o frame sendo recebido
- * @details Esta estrutura armazena os dados de um frame sendo recebido pela porta de comunicação serial.
+ * @brief Informaï¿½ï¿½es sobre o frame sendo recebido
+ * @details Esta estrutura armazena os dados de um frame sendo recebido pela porta de comunicaï¿½ï¿½o serial.
  */
 typedef struct {
     uint8_t byte_received;              ///< Byte que acaba de ser recebido pela porta serial.
-    teSerialFrameType rx_frame_type;    ///< Tipo do frame recebido pela comunicação serial. \see teSerialFrameType.
-    uint8_t* pBuffer;                   ///< Ponteiro do buffer de recepção dos dados.
-    uint32_t nBytes;                    ///< Número total de bytes do buffer de recepção. \see pBuffer
-    uint32_t bytesReceived;             ///< Número de bytes válidos recebidos do frame corrente.
-    uint8_t  frameReceived;             ///< Sinalizador que indica que um frame válido foi recebido.
-    uint16_t chksum;                    ///< Variável temporária que é utilizada para o cálculo do CHKSUM. A cada byte recebido esta variável é atualizada.
+    teSerialFrameType rx_frame_type;    ///< Tipo do frame recebido pela comunicaï¿½ï¿½o serial. \see teSerialFrameType.
+    uint8_t* pBuffer;                   ///< Ponteiro do buffer de recepï¿½ï¿½o dos dados.
+    uint32_t nBytes;                    ///< Nï¿½mero total de bytes do buffer de recepï¿½ï¿½o. \see pBuffer
+    uint32_t bytesReceived;             ///< Nï¿½mero de bytes vï¿½lidos recebidos do frame corrente.
+    uint8_t  frameReceived;             ///< Sinalizador que indica que um frame vï¿½lido foi recebido.
+    uint16_t chksum;                    ///< Variï¿½vel temporï¿½ria que ï¿½ utilizada para o cï¿½lculo do CHKSUM. A cada byte recebido esta variï¿½vel ï¿½ atualizada.
     uint16_t chksumReceived;            ///< CHKSUM do frame recebido.
-    StateMachine sm_rx_serial_api;      ///< Máquina de estados utilizada para a recepção dos dados. \see StateMachine
-    boolean lock;                       ///< Sinalizador que bloqueia a alteração desta estrutura. Se estiver travado, ignora o dado recém recebido.
+    StateMachine sm_rx_serial_api;      ///< Mï¿½quina de estados utilizada para a recepï¿½ï¿½o dos dados. \see StateMachine
+    boolean lock;                       ///< Sinalizador que bloqueia a alteraï¿½ï¿½o desta estrutura. Se estiver travado, ignora o dado recï¿½m recebido.
 }CiseiRxChannel;
 
 /**
-* Função evocada a cada interrupção de recepção de dados pela porta serial.
-* @details Cada byte recebido pela porta de comunicação serial evoca esta função que atualiza toda a estrutura de comunicação.
-* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepção serial.
+* Funï¿½ï¿½o evocada a cada interrupï¿½ï¿½o de recepï¿½ï¿½o de dados pela porta serial.
+* @details Cada byte recebido pela porta de comunicaï¿½ï¿½o serial evoca esta funï¿½ï¿½o que atualiza toda a estrutura de comunicaï¿½ï¿½o.
+* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepï¿½ï¿½o serial.
 * @param b Byte que acaba de ser recebido pela porta serial.
 */
 void rx_interrupt(CiseiRxChannel* rx, uint8_t b);
 
 /**
-* Função que inicializa a estrutura para a comunicação serial.
-* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepção serial.
-* @param pBuffer Ponteiro do buffer de recepção dos dados.
-* @param nBytes Número total de bytes do buffer de recepção. \see pBuffer
+* Funï¿½ï¿½o que inicializa a estrutura para a comunicaï¿½ï¿½o serial.
+* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepï¿½ï¿½o serial.
+* @param pBuffer Ponteiro do buffer de recepï¿½ï¿½o dos dados.
+* @param nBytes Nï¿½mero total de bytes do buffer de recepï¿½ï¿½o. \see pBuffer
 */
 void init_rx_serial(CiseiRxChannel* rx, uint8_t* pBuffer, uint32_t nBytes);
 
 /**
-* Função que libera a recepção de dados. \see frameReceived
-* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepção serial.
+* Funï¿½ï¿½o que libera a recepï¿½ï¿½o de dados. \see frameReceived
+* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepï¿½ï¿½o serial.
 */
 void rx_free_frame(CiseiRxChannel* rx);
 
 /**
- * Função que esvazia e inicializa a estrutura de recepção. \see CiseiRxChannel
- * @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepção serial.
+ * Funï¿½ï¿½o que esvazia e inicializa a estrutura de recepï¿½ï¿½o. \see CiseiRxChannel
+ * @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepï¿½ï¿½o serial.
  */
 void rx_reset_buffer(CiseiRxChannel* rx);
 
 /**
-* Função que sinaliza que um frame válido foi recebido.
-* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepção serial.
-* @param bytesReceived Ponteiro para uma variável uint32_t que será atualizada com o número de bytes do frame válido recebido. Não é alterada se o frame não foi recebido.
-* @return TRUE(1) se o um frame válido foi recebido e está disponível.
+* Funï¿½ï¿½o que sinaliza que um frame vï¿½lido foi recebido.
+* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepï¿½ï¿½o serial.
+* @param bytesReceived Ponteiro para uma variï¿½vel uint32_t que serï¿½ atualizada com o nï¿½mero de bytes do frame vï¿½lido recebido. Nï¿½o ï¿½ alterada se o frame nï¿½o foi recebido.
+* @return TRUE(1) se o um frame vï¿½lido foi recebido e estï¿½ disponï¿½vel.
 */
 uint8_t rx_frameReceived(CiseiRxChannel* rx, uint32_t* bytesReceived);
 
+uint8_t rx_checkframeReceived(CiseiRxChannel* rx);
+
 /**
-* Função que retorna o tipo de frame recebido. \see teSerialFrameType
-* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepção serial.
+* Funï¿½ï¿½o que retorna o tipo de frame recebido. \see teSerialFrameType
+* @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recepï¿½ï¿½o serial.
 * @return Valor do tipo de frame recebido. \see teSerialFrameType
 */
 teSerialFrameType rx_getFrameType(CiseiRxChannel* rx);

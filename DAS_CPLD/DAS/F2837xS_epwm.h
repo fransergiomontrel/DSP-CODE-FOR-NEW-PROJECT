@@ -191,7 +191,7 @@ union AQTSRCSEL_REG {
 struct PCCTL_BITS {                     // bits description
     Uint16 CHPEN:1;                     // 0 PWM chopping enable
     Uint16 OSHTWTH:4;                   // 4:1 One-shot pulse width
-    Uint16 CHPFREQ:3;                   // 7:5 Chopping clock frequency
+    Uint16 CHPFREQ:3;                   // 7:5 Chopping clock frequencyuency
     Uint16 CHPDUTY:3;                   // 10:8 Chopping clock Duty cycle
     Uint16 rsvd1:5;                     // 15:11 Reserved
 };

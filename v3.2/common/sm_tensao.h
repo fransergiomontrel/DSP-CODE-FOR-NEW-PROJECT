@@ -10,31 +10,31 @@
 
 /**
  * @file
- * @brief Declaração dos estados da maquina de estados de tensão.
- * @details Estes estados são utilizados pela maquina de estados que
- * é executada nas interfaces de tensão.
+ * @brief Declaraï¿½ï¿½o dos estados da maquina de estados de tensï¿½o.
+ * @details Estes estados sï¿½o utilizados pela maquina de estados que
+ * ï¿½ executada nas interfaces de tensï¿½o.
  * @author Lucas Murbach Pierin.
  */
 
 extern StateMachine sm_tensao;
 
 /**
- * @brief Estado inicial da máquina de estados.
- * @details Inicializa a camada de abstração de hardware e configura a CPLD.
+ * @brief Estado inicial da mï¿½quina de estados.
+ * @details Inicializa a camada de abstraï¿½ï¿½o de hardware e configura a CPLD.
  */
 STATE(SM_TENSAO_INIT);
 
 /**
  * @brief Estado de testes.
- * @details Realiza os testes de leitura/escrita da memória RAM e
- * comunicação com os CADs.
+ * @details Realiza os testes de leitura/escrita da memï¿½ria RAM e
+ * comunicaï¿½ï¿½o com os CADs.
  * @see CPLD_TestRAM(), CPLD_Test_SPI_AD()
  */
 STATE(SM_TENSAO_TEST);
 
 /**
- * @brief Estado configuração.
- * @details Inicializa e configura o protocolo de comunicação e
+ * @brief Estado configuraï¿½ï¿½o.
+ * @details Inicializa e configura o protocolo de comunicaï¿½ï¿½o e
  * configura os CADs.
  * @see init_tx_serial(), init_rx_serial()
  */
@@ -50,95 +50,109 @@ STATE(SM_TENSAO_CFG);
 STATE(SM_TENSAO_WAIT);
 
 /**
- * @brief Estado de conversão.
- * @details Neste estado a SM espera o final das conversões.
+ * @brief Estado de conversï¿½o.
+ * @details Neste estado a SM espera o final das conversï¿½es.
  */
 STATE(SM_TENSAO_CONV);
 
 /**
  * @brief Estado para o calculo dos fasores.
- * @details Nesse estado são recuperados os pontos da memória RAM e são
+ * @details Nesse estado sï¿½o recuperados os pontos da memï¿½ria RAM e sï¿½o
  * calculados os fasores para as seis entradas.
  * @see t_voltage_phasor_frame
  */
 STATE(SM_TENSAO_CALC_FAS);
 
 /**
- * @brief Estado de transmissão.
- * @details Neste estado são enviados pela interface de comunicação USB
- * o pacote de dados de tensão para o PC.
+ * @brief Estado de transmissï¿½o.
+ * @details Neste estado sï¿½o enviados pela interface de comunicaï¿½ï¿½o USB
+ * o pacote de dados de tensï¿½o para o PC.
  * @see t_voltage_data_frame, t_voltage_phasor_frame
  */
 STATE(SM_TENSAO_TX);
 
 /**
- * @brief Estado para finalização da transmissão.
- * @details Quando nesse estado a SM fica esperando a finalização da transmissão
+ * @brief Estado para finalizaï¿½ï¿½o da transmissï¿½o.
+ * @details Quando nesse estado a SM fica esperando a finalizaï¿½ï¿½o da transmissï¿½o
  * dos dados para o PC.
  */
 STATE(SM_TENSAO_WAIT_TX);
 
 /**
- * @brief Estado de transmissão do sinalizador de final de conversão.
- * @details Neste estado é enviado um pacote informando o PC que as conversões
- * e calculo dos fasores foram finalizados, ficando disponiveis para requisição.
+ * @brief Estado de transmissï¿½o do sinalizador de final de conversï¿½o.
+ * @details Neste estado ï¿½ enviado um pacote informando o PC que as conversï¿½es
+ * e calculo dos fasores foram finalizados, ficando disponiveis para requisiï¿½ï¿½o.
  */
 STATE(SEND_CONV_END);
 
 /**
- * @brief Estado de transmissão do pocte de sincronismo.
- * @details Neste estado é enviado pelos canais de comunicação opticas
+ * @brief Estado de transmissï¿½o do pocte de sincronismo.
+ * @details Neste estado ï¿½ enviado pelos canais de comunicaï¿½ï¿½o opticas
  * o pacote informando as interfaces de corrente para se prepararem para
- * receber o sincronismo para uma nova aquisição de dados.
+ * receber o sincronismo para uma nova aquisiï¿½ï¿½o de dados.
  */
 STATE(SM_TENSAO_TX_SYNC);
 
 /**
  * @brief Estado de sincronismo.
- * @details Neste estado é enviado pelos canais de comunicação opticas
- * o pulso de sincronismo já com as compensações de propagação e tamanho
+ * @details Neste estado ï¿½ enviado pelos canais de comunicaï¿½ï¿½o opticas
+ * o pulso de sincronismo jï¿½ com as compensaï¿½ï¿½es de propagaï¿½ï¿½o e tamanho
  * de fibra.
  */
 STATE(SM_TENSAO_SYNC);
 
 /**
- * @brief Estado de calculo da propagação.
- * @details Neste estado são enviado pelos canais de comunicação opticas
+ * @brief Estado de calculo da propagaï¿½ï¿½o.
+ * @details Neste estado sï¿½o enviado pelos canais de comunicaï¿½ï¿½o opticas
  * varios pulsos similares ao de sincronismo com a finalidade de medir o
- * tempo de propagação do sinal das fibras, assim é realizada uma compensação
+ * tempo de propagaï¿½ï¿½o do sinal das fibras, assim ï¿½ realizada uma compensaï¿½ï¿½o
  * no momento de enviar o sincronismo para garantir que mesmo as interfaces
  * mais distantes recebam o pulso ao mesmo tempo.
  */
 STATE(SM_TENSAO_DELAY);
 
 /**
- * @brief Estado de requisição de dados.
- * @details Neste estado é enviado pelo canal de comunicação optica 1
+ * @brief Estado de requisiï¿½ï¿½o de dados.
+ * @details Neste estado ï¿½ enviado pelo canal de comunicaï¿½ï¿½o optica 1
  * o pacote requisitando os dados de corrente e aguarda o recebimento.
  */
 STATE(SM_TENSAO_REQ_I1);
 
 /**
- * @brief Estado de transmissão.
- * @details Neste estado são enviados pela interface de comunicação USB
- * o pacote de dados de corrente da interface 1 para o PC.
- * @see t_current_data_frame, t_current_phasor_frame
- */
-STATE(SM_TENSAO_SEND_I1);
-
-/**
- * @brief Estado de requisição de dados.
- * @details Neste estado é enviado pelo canal de comunicação optica 2
+ * @brief Estado de requisiï¿½ï¿½o de dados.
+ * @details Neste estado ï¿½ enviado pelo canal de comunicaï¿½ï¿½o optica 2
  * o pacote requisitando os dados de corrente e aguarda o recebimento.
  */
 STATE(SM_TENSAO_REQ_I2);
 
 /**
- * @brief Estado de transmissão.
- * @details Neste estado são enviados pela interface de comunicação USB
+ * @brief Estado de requisiï¿½ï¿½o de dados.
+ * @details Neste estado ï¿½ enviado pelo canal de comunicaï¿½ï¿½o optica 3
+ * o pacote requisitando os dados de corrente e aguarda o recebimento.
+ */
+STATE(SM_TENSAO_REQ_I3);
+
+/**
+ * @brief Estado de requisiï¿½ï¿½o de dados.
+ * @details Neste estado ï¿½ enviado pelo canal de comunicaï¿½ï¿½o optica 4
+ * o pacote requisitando os dados de corrente e aguarda o recebimento.
+ */
+STATE(SM_TENSAO_REQ_I4);
+
+/**
+ * @brief Estado de requisiï¿½ï¿½o de dados.
+ * @details Neste estado ï¿½ enviado pelo canal de comunicaï¿½ï¿½o optica 4
+ * o pacote requisitando os dados de corrente e aguarda o recebimento.
+ */
+STATE(RET_TO_POL_CONVERT);
+
+
+/**
+ * @brief Estado de transmissï¿½o.
+ * @details Neste estado sï¿½o enviados pela interface de comunicaï¿½ï¿½o USB
  * o pacote de dados de corrente da interface 2 para o PC.
  * @see t_current_data_frame, t_current_phasor_frame
  */
-STATE(SM_TENSAO_SEND_I2);
+STATE(SM_SEND_DATA);
 
 #endif

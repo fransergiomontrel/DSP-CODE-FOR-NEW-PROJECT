@@ -527,9 +527,17 @@ void setB230(uint16_t index, uint16_t value);
 */
 void setC230(uint16_t index, uint16_t value);
 
+void phasors_int_to_float(CiseiRxChannel * rx_Fibra1, tms320_board_data_t * board_data);
+
+void phasors_ret_to_polar(tms320_board_data_t * board_data);
+
 void quickSort(uint16_t vet[], int16_t esq, int16_t dir);
 
 float64 tempNTC(float res, uint16_t adc1, uint16_t adc2);
+
+void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data);
+
+void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_uart_frame);
 
 extern uint16_t acquisition_counter;
 
