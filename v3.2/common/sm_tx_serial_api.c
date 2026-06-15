@@ -25,6 +25,21 @@ void init_tx_serial(CiseiTxChannel* tx, tpTxByte pTxByteFunc, boolean dummy){
 
 }
 
+void init_tx_serial_software(CiseiTxChannel* tx, tpTxByte pTxByteFunc, boolean dummy){
+    //TXInts(0);
+
+    tx->tx_FF = dummy;
+    tx->pTxByte = pTxByteFunc;
+    tx->tx_start = 0;
+    tx->estado = 0;
+	INIT(tx->sm_tx_serial_api, SM_TX_WAITING_SOFT, tx);
+	//if(tx->tx_FF)
+	    //tx->pTxByte(0xFF);
+
+	//TXInts(1);
+
+}
+
 uint8_t start_tx_frame(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPayload, uint32_t nBytes) {
     TXInts(0);
 
@@ -52,9 +67,49 @@ uint8_t start_tx_frame(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPay
 	return 1;
 }
 
+uint8_t start_tx_frame_software(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPayload, uint32_t nBytes) {
+    //TXInts(0);
+
+	if (!COMPARE(tx->sm_tx_serial_api, SM_TX_WAITING_SOFT)){
+	    //TXInts(1);
+        return 0;
+	}
+
+    tx->type = type;
+    tx->ptr_payload = pPayload;
+    tx->bytes_to_tx = nBytes;
+    tx->index_to_tx = 0;
+    tx->chksum = 0;
+    tx->isFinished = 0;
+    
+    if(tx->tx_FF)
+        tx->tx_start = 1;
+    else{
+        INIT(tx->sm_tx_serial_api, SM_START_SOFT, tx);
+        tx->pTxByte(SOH);
+    }
+
+    //TXInts(1);
+	return 1;
+}
+
 #define sm_tx   ((CiseiTxChannel*)SM_PARAM)
 
 STATE(SM_TX_WAITING) {
+    sm_tx->estado = 1;
+    if(sm_tx->tx_FF){
+        if(sm_tx->tx_start){
+            sm_tx->tx_start = 0;
+            sm_tx->pTxByte(SOH);
+            NEXT_STATE(SM_START);
+        }else{
+
+            sm_tx->pTxByte(0xFF);
+        }
+    }
+}
+
+STATE(SM_TX_WAITING_SOFT) {
     sm_tx->estado = 1;
     if(sm_tx->tx_FF){
         if(sm_tx->tx_start){
@@ -74,6 +129,12 @@ STATE(SM_START) {
 	NEXT_STATE(SM_TX_DATA);
 }
 
+STATE(SM_START_SOFT) {
+    sm_tx->estado = 2;
+    sm_tx->pTxByte((uint8_t)sm_tx->type); // Inicia a transmissao pelo SOF
+	NEXT_STATE(SM_TX_DATA_SOFT);
+}
+
 STATE(SM_TX_DATA) {
     sm_tx->estado = 3;
 	if (sm_tx->index_to_tx == sm_tx->bytes_to_tx) {
@@ -81,11 +142,16 @@ STATE(SM_TX_DATA) {
 		NEXT_STATE(SM_TX_CHKSUM_LSB);
 		return;
 	}
-    #ifdef __TMS320C28X__
-    uint8_t aux = readByte(sm_tx->ptr_payload,sm_tx->index_to_tx);
-    #else
+
+    STATE(SM_TX_DATA_SOFT) {
+    sm_tx->estado = 3;
+	if (sm_tx->index_to_tx == sm_tx->bytes_to_tx) {
+        sm_tx->pTxByte(EOT); // Inicia a transmissao pelo SOF
+		NEXT_STATE(SM_TX_CHKSUM_LSB);
+		return;
+	}
+    
     uint8_t aux = sm_tx->ptr_payload[sm_tx->index_to_tx];
-    #endif
 	if (aux == SOH || aux == EOT || aux == ESC) {
         sm_tx->pTxByte(ESC);
 		NEXT_STATE(SM_TX_BYTE_STUFFING);

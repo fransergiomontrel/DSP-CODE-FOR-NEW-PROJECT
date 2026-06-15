@@ -63,6 +63,8 @@ void tx_interrupt(CiseiTxChannel* tx);
 */
 uint16_t tx_end(CiseiTxChannel* tx);
 
+uint8_t start_tx_frame_software(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPayload, uint32_t nBytes);
+
 STATE(SM_START);                ///< Dispara a comunica��o serial (inicia a transmiss�o do frame).
 STATE(SM_TX_WAITING);           ///< Estado aguardando o disparo da transmiss�o serial
 STATE(SM_TX_DATA);              ///< Transmitindo os dados do payload na porta serial
@@ -72,4 +74,7 @@ STATE(SM_TX_CHKSUM_LSB);        ///< Estado sinalizando que o byte LSB de CHKSUM
 STATE(SM_TX_CHKSUM_MSB);        ///< Estado sinalizando que o byte MSB de CHKSUM est� sendo transmitido.
 STATE(SM_TX_FINALIZE);          ///< Estado sinalizando o fim da transmiss�o serial.
 
+STATE(SM_START_SOFT);                ///< Dispara a comunica��o serial (inicia a transmiss�o do frame).
+STATE(SM_TX_WAITING_SOFT);           ///< Estado aguardando o disparo da transmiss�o serial
+STATE(SM_TX_DATA_SOFT);              ///< Transmitindo os dados do payload na porta serial
 #endif

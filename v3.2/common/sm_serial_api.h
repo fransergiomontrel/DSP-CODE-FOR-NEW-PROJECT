@@ -5,6 +5,8 @@
 #define EOT	0x04 ///< Identificador de fim de frame de dados
 #define	ESC	0x1B ///< Sequencia de ESCAPE para Byte Stuffing
 
+#define TX_SOFT 82
+
 #ifdef __TMS320C28X__
     /** @brief Opera��o de escrita de um byte na mem�ria.
      * @details Esta fun��o � necess�ria pelo fato do TMS320C ter uma posi��o de mem�ria com 2 bytes.

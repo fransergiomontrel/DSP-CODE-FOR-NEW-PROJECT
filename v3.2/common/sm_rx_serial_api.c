@@ -77,22 +77,17 @@ STATE(SM_RX_DATA) {
 		return;
 	}
 
-    #ifdef __TMS320C28X__
-    writeByte(sm_rx->pBuffer, sm_rx->bytesReceived, sm_rx->byte_received);
-    #else
     sm_rx->pBuffer[sm_rx->bytesReceived] = sm_rx->byte_received;
-    #endif
+    
 	sm_rx->chksum = sm_rx->chksum + (uint8_t)sm_rx->byte_received;
 	sm_rx->bytesReceived = sm_rx->bytesReceived + 1;
 }
 
 STATE(SM_RX_BYTE_STUFFING) {
 	uint8_t b = sm_rx->byte_received ^ 0xFF;
-    #ifdef __TMS320C28X__
-	writeByte(sm_rx->pBuffer, sm_rx->bytesReceived, b);
-    #else
+  
     sm_rx->pBuffer[sm_rx->bytesReceived] = b;
-    #endif
+    
 	sm_rx->chksum = sm_rx->chksum + b;
 	sm_rx->bytesReceived = sm_rx->bytesReceived + 1;
 	NEXT_STATE(SM_RX_DATA);

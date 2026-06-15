@@ -189,6 +189,13 @@ interrupt void doNothing(void);
 #endif
 
 /**
+* @brief Fun��o de envio de dados pela softwart UART.
+* @details Esta fun��o envia o dado passado como parametro utilizando a interface de
+* comunica��o soft-serial.
+* @param b Dado a ser enviado
+*/
+void tx_byte_soft(uint8_t b);
+/**
 * @brief Fun��o de envio de dados pela SCI-A.
 * @details Esta fun��o envia o dado passado como parametro utilizando a interface de
 * comunica��o serial A.

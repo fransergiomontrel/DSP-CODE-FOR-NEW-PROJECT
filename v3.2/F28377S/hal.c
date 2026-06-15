@@ -9,6 +9,7 @@
 #include "F28377S/LCD_I2C.h"
 
 #define contador 0xFFFFFFFF;
+#define baud_time_soft_serial 0x000006C8;
 
 volatile uint8_t bufferFull;
 volatile uint8_t startCap = 0;
@@ -220,6 +221,16 @@ interrupt void timer1_isr(void){
     CpuTimer1Regs.TCR.bit.TSS = 1;
     timer_end = 1;
 }
+/*
+interrupt void timer2_isr(void){
+//    togglePin(DEBUG1);
+//    CpuTimer1Regs.TCR.bit.TRB = 1;
+    CpuTimer2Regs.TCR.bit.TSS = 1;
+    CpuTimer2Regs.PRD.all = boud_time_soft_serial;
+    CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
+    
+}
+*/
 
 void initInts(){
     DINT;
@@ -232,6 +243,8 @@ void initInts(){
 
     EALLOW;
     PieVectTable.TIMER1_INT = &timer1_isr;
+
+    //PieVectTable.TIMER2_INT = &timer2_isr;
 
     PieVectTable.ADCB1_INT = &readADC;
 //  PieVectTable.TIMER0_INT = &runADC;
@@ -353,6 +366,7 @@ void sysInit(void){
 }
 
 void GPIOInit(void){
+
     InitEPwm1Gpio();
     InitSpiaGpio();
 
@@ -390,7 +404,6 @@ void GPIOInit(void){
     clr_DEBUG1();clr_DEBUG2();clr_DEBUG3();clr_DEBUG4();
     clr_DEBUG5();clr_DEBUG6();clr_DEBUG7();clr_DEBUG8();
 
-
     GPIO_SetupPinMux(RXD, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(RXD, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXD, GPIO_MUX_CPU1, 6);
@@ -411,6 +424,57 @@ void GPIOInit(void){
     GPIO_SetupPinMux(TXC, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(TXC, GPIO_OUTPUT, GPIO_ASYNC);
 
+}
+
+//==============================================================================
+// tx_byte_soft - Transmite um byte pela software serial
+//==============================================================================
+void tx_byte_soft(uint8_t b)
+{
+    uint8_t *ptr = &b;       // ponteiro para o byte
+    uint8_t i;
+    uint8_t parity_bit = (*ptr >> 0) & 0x01;
+    for(i = 1; i < 8; i++)
+    {
+        parity_bit ^= (*ptr >> i) & 0x01;
+    }
+
+    //Start bit
+    CpuTimer2Regs.PRD.all = baud_time_soft_serial;
+    CpuTimer2Regs.TCR.bit.TRB = 1;
+    //Start bit
+    GPIO_WritePin(TX_SOFT, 0);
+    CpuTimer2Regs.TCR.bit.TSS = 0;
+    while (CpuTimer2Regs.TCR.bit.TIF == 0);
+    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
+    CpuTimer2Regs.TCR.bit.TSS = 1;
+
+    for(i = 0; i < 8; i++)
+    {
+        CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
+        GPIO_WritePin(TX_SOFT, (*ptr >> i) & 0x01);
+        CpuTimer2Regs.TCR.bit.TSS = 0;
+        while (CpuTimer2Regs.TCR.bit.TIF == 0);
+        // timer expirou
+        CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
+        CpuTimer2Regs.TCR.bit.TSS = 1;
+        // faça algo
+    }
+    CpuTimer2Regs.TCR.bit.TRB = 1;
+    //Parity bit
+    GPIO_WritePin(TX_SOFT, parity_bit);
+    CpuTimer2Regs.TCR.bit.TSS = 0;
+    while (CpuTimer2Regs.TCR.bit.TIF == 0);
+    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
+    CpuTimer2Regs.TCR.bit.TSS = 1;
+
+    CpuTimer2Regs.TCR.bit.TRB = 1;
+    //Stop bit
+    GPIO_WritePin(TX_SOFT, 1);
+    CpuTimer2Regs.TCR.bit.TSS = 0;
+    while (CpuTimer2Regs.TCR.bit.TIF == 0);
+    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
+    CpuTimer2Regs.TCR.bit.TSS = 1;
 }
 
 void tx_A_byte(uint8_t b){
@@ -543,6 +607,11 @@ void configureSCI_UART(void){
     GPIO_SetupPinOptions(RXD, GPIO_INPUT, GPIO_PUSHPULL);
     GPIO_SetupPinMux(TXD, GPIO_MUX_CPU1, 6);
     GPIO_SetupPinOptions(TXD, GPIO_OUTPUT, GPIO_ASYNC);
+
+    //Pins for uart by software
+    GPIO_SetupPinMux(TX_SOFT, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(TX_SOFT, GPIO_OUTPUT, GPIO_PUSHPULL | GPIO_ASYNC);
+    GPIO_WritePin(TX_SOFT, 1);
 
 }
 
@@ -1175,8 +1244,6 @@ void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_
     memcpy(&(tms320_uart_frame->payload), &tms320_data, sizeof(tms320_data_t));
     tms320_uart_frame->crc = CRC_calc; 
 }
-
-
 
 float64 tempNTC(float res, uint16_t adc1, uint16_t adc2){
     const float64 beta = 3450.0;

@@ -42,8 +42,6 @@ tms320_data_t tms320_data;
 
 tms320_uart_frame_t tms320_uart_frame;
 
-
-
 extern volatile uint32_t delay_T1, delay_T2, delay_T3, delay_T4;
 extern volatile uint16_t timer_end;
 extern volatile uint8_t bufferFull;
@@ -65,7 +63,6 @@ extern CiseiRxChannel rx_Fibra4;
 extern CiseiTxChannel tx_Fibra4;
 
 
-
 STATE(SM_TENSAO_INIT){
     init_hal();
     CPLD_GPIO_Config();
@@ -83,6 +80,7 @@ STATE(SM_TENSAO_TEST){
 
 STATE(SM_TENSAO_CFG){
 
+    init_tx_serial_software(&tx_USB, tx_byte_soft, 0);
     init_tx_serial(&tx_Fibra1, tx_D_byte, 0);
     init_tx_serial(&tx_Fibra4, tx_A_byte, 0);
     init_tx_serial(&tx_Fibra2, tx_C_byte, 0);
@@ -95,6 +93,7 @@ STATE(SM_TENSAO_CFG){
 
     init_rx_serial(&rx_USB, buffer_USB, sizeof(buffer_USB));
 
+    tx_byte_soft(0x01);
     tx_D_byte(0x01);
     tx_A_byte(0x01);
     tx_C_byte(0x01);
@@ -1175,8 +1174,6 @@ STATE(SM_CORRENTE_TEMPERATURA){
     
 }
 
-
-
 STATE(SM_SEND_DATA){
 
     if(JUST_ARRIVED){
@@ -1189,7 +1186,7 @@ STATE(SM_SEND_DATA){
         //Send data to STM32 through software serial
         //data_frame.pCurrent.acquisition_counter = acquisition_counter;
         tms320_frame_crc(&tms320_data, &tms320_uart_frame);
-        start_tx_frame(&tx_USB, TMS320_DATA_CRC, (uint8_t*)&tms320_uart_frame, 2*sizeof(tms320_uart_frame));//Montar pacote de transferencia
+        start_tx_frame_software(&tx_USB, TMS320_DATA_CRC, (uint8_t*)&tms320_uart_frame, 2*sizeof(tms320_uart_frame));//Montar pacote de transferencia
         
     }
     if(tx_end(&tx_USB)){
