@@ -5,7 +5,11 @@
 #define EOT	0x04 ///< Identificador de fim de frame de dados
 #define	ESC	0x1B ///< Sequencia de ESCAPE para Byte Stuffing
 
-#define TX_SOFT 82
+#define TX_STM_SOFT 82
+#define RX_STM_SOFT 83
+
+#define TX_FPGA_SOFT 28
+#define RX_FPGA_SOFT 30
 
 #ifdef __TMS320C28X__
     /** @brief Opera��o de escrita de um byte na mem�ria.

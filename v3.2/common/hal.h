@@ -194,7 +194,7 @@ interrupt void doNothing(void);
 * comunica��o soft-serial.
 * @param b Dado a ser enviado
 */
-void tx_byte_soft(uint8_t b);
+void tx_byte_soft(uint8_t * b);
 /**
 * @brief Fun��o de envio de dados pela SCI-A.
 * @details Esta fun��o envia o dado passado como parametro utilizando a interface de
@@ -208,6 +208,8 @@ void tx_A_byte(uint8_t b);
 * comunica��o serial A.
 * @return Dado recebido pela interface de comunica��o
 */
+void rx_byte_stm_soft(void);
+
 uint8_t rx_A_byte();
 
 /**
@@ -394,6 +396,10 @@ void startCapture(void);
 * @see ChronoStart()
 */
 uint32_t now(void);
+
+void serial_rx_to_stm_Init(void);
+
+void serial_tx_to_stm_Init(void);
 
 /**
 * @brief Fun��o para inicializar a SCI-A.

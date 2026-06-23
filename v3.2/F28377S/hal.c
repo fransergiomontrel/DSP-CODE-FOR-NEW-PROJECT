@@ -9,7 +9,9 @@
 #include "F28377S/LCD_I2C.h"
 
 #define contador 0xFFFFFFFF;
-#define baud_time_soft_serial 0x000006C8;
+
+#define BAUD_TIME_SOFT_SERIAL 1101
+#define ONE_HALF_BIT_TIME 1708
 
 volatile uint8_t bufferFull;
 volatile uint8_t startCap = 0;
@@ -103,7 +105,7 @@ void init_hal(void){
     CpuSysRegs.PCLKCR0.bit.TBCLKSYNC = 0;
     EDIS;
 
-    config_ADC();
+    //config_ADC();
 
     EALLOW;
     CpuSysRegs.PCLKCR0.bit.TBCLKSYNC = 1;
@@ -221,16 +223,7 @@ interrupt void timer1_isr(void){
     CpuTimer1Regs.TCR.bit.TSS = 1;
     timer_end = 1;
 }
-/*
-interrupt void timer2_isr(void){
-//    togglePin(DEBUG1);
-//    CpuTimer1Regs.TCR.bit.TRB = 1;
-    CpuTimer2Regs.TCR.bit.TSS = 1;
-    CpuTimer2Regs.PRD.all = boud_time_soft_serial;
-    CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
-    
-}
-*/
+
 
 void initInts(){
     DINT;
@@ -429,52 +422,23 @@ void GPIOInit(void){
 //==============================================================================
 // tx_byte_soft - Transmite um byte pela software serial
 //==============================================================================
-void tx_byte_soft(uint8_t b)
+uint8_t * ptr_global;
+
+uint8_t parity_bit;
+
+void tx_byte_soft(uint8_t * b)
 {
-    uint8_t *ptr = &b;       // ponteiro para o byte
+    ptr_global = b;       
     uint8_t i;
-    uint8_t parity_bit = (*ptr >> 0) & 0x01;
+    parity_bit = (*ptr_global >> 0) & 0x01;
+    CpuTimer2.InterruptCount = 0;
+
     for(i = 1; i < 8; i++)
     {
-        parity_bit ^= (*ptr >> i) & 0x01;
+        parity_bit ^= (*ptr_global >> i) & 0x01;
     }
-
-    //Start bit
-    CpuTimer2Regs.PRD.all = baud_time_soft_serial;
-    CpuTimer2Regs.TCR.bit.TRB = 1;
-    //Start bit
-    GPIO_WritePin(TX_SOFT, 0);
+    
     CpuTimer2Regs.TCR.bit.TSS = 0;
-    while (CpuTimer2Regs.TCR.bit.TIF == 0);
-    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
-    CpuTimer2Regs.TCR.bit.TSS = 1;
-
-    for(i = 0; i < 8; i++)
-    {
-        CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
-        GPIO_WritePin(TX_SOFT, (*ptr >> i) & 0x01);
-        CpuTimer2Regs.TCR.bit.TSS = 0;
-        while (CpuTimer2Regs.TCR.bit.TIF == 0);
-        // timer expirou
-        CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
-        CpuTimer2Regs.TCR.bit.TSS = 1;
-        // faça algo
-    }
-    CpuTimer2Regs.TCR.bit.TRB = 1;
-    //Parity bit
-    GPIO_WritePin(TX_SOFT, parity_bit);
-    CpuTimer2Regs.TCR.bit.TSS = 0;
-    while (CpuTimer2Regs.TCR.bit.TIF == 0);
-    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
-    CpuTimer2Regs.TCR.bit.TSS = 1;
-
-    CpuTimer2Regs.TCR.bit.TRB = 1;
-    //Stop bit
-    GPIO_WritePin(TX_SOFT, 1);
-    CpuTimer2Regs.TCR.bit.TSS = 0;
-    while (CpuTimer2Regs.TCR.bit.TIF == 0);
-    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
-    CpuTimer2Regs.TCR.bit.TSS = 1;
 }
 
 void tx_A_byte(uint8_t b){
@@ -609,9 +573,17 @@ void configureSCI_UART(void){
     GPIO_SetupPinOptions(TXD, GPIO_OUTPUT, GPIO_ASYNC);
 
     //Pins for uart by software
-    GPIO_SetupPinMux(TX_SOFT, GPIO_MUX_CPU1, 0);
-    GPIO_SetupPinOptions(TX_SOFT, GPIO_OUTPUT, GPIO_PUSHPULL | GPIO_ASYNC);
-    GPIO_WritePin(TX_SOFT, 1);
+    GPIO_SetupPinMux(TX_STM_SOFT, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(TX_STM_SOFT, GPIO_OUTPUT, GPIO_PUSHPULL | GPIO_ASYNC);
+    GPIO_WritePin(TX_STM_SOFT, 1);
+    GPIO_SetupPinMux(RX_STM_SOFT, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(RX_STM_SOFT, GPIO_INPUT, GPIO_ASYNC);
+
+    GPIO_SetupPinMux(TX_FPGA_SOFT, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(TX_FPGA_SOFT, GPIO_OUTPUT, GPIO_PUSHPULL | GPIO_ASYNC);
+    GPIO_WritePin(TX_FPGA_SOFT, 1);
+    GPIO_SetupPinMux(RX_FPGA_SOFT, GPIO_MUX_CPU1, 0);
+    GPIO_SetupPinOptions(RX_FPGA_SOFT, GPIO_INPUT, GPIO_ASYNC);
 
 }
 
@@ -627,6 +599,51 @@ uint32_t now(void){
 
 uint8_t endCapture(){
     return bufferFull;
+}
+
+interrupt void timer2_tx_stm_isr(void){
+   //Start bit
+   if(CpuTimer2.InterruptCount == 0)
+   {
+       GpioDataRegs.GPCDAT.bit.GPIO84 = (*ptr_global >> CpuTimer2.InterruptCount) & 0x00;
+   }
+   //Data byte
+   else if(CpuTimer2.InterruptCount < 9)
+   {
+       GpioDataRegs.GPCDAT.bit.GPIO84 = (*ptr_global >> (CpuTimer2.InterruptCount - 1)) & 0x01;
+   }
+   //Parity bit
+   else if(CpuTimer2.InterruptCount == 9)
+   {
+       GpioDataRegs.GPCDAT.bit.GPIO84 = parity_bit;
+   }
+   //Stop bit
+   else if(CpuTimer2.InterruptCount == 10)
+   {
+       GpioDataRegs.GPCDAT.bit.GPIO84 = 1;
+       CpuTimer2Regs.TCR.bit.TSS = 1;
+   }
+    ++CpuTimer2.InterruptCount;
+    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
+	PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
+    CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
+}
+
+void serial_tx_to_stm_Init(void){
+
+    CpuTimer2Regs.PRD.all = BAUD_TIME_SOFT_SERIAL;
+    CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
+    CpuTimer2Regs.TCR.bit.FREE = 1; //CPU Timer Free Run
+    CpuTimer2Regs.TCR.bit.TIE = 1;  //CPU Timer Interrupt Enable
+    CpuTimer2Regs.TCR.bit.TIF = 1;  //CPU Timer Overflow Flag
+    CpuTimer2Regs.TPR.all  = 0;     //CPU Timer Prescale Register
+    CpuTimer2Regs.TPRH.all = 0;     //CPU Timer Prescale Register High
+    CpuTimer2Regs.TCR.bit.TSS = 1;  //CPU Timer stop status bit
+
+    EALLOW;
+    PieVectTable.TINT2 = &timer2_tx_stm_isr;
+    EDIS;
+
 }
 
 void serial_A_Init(void){
@@ -912,6 +929,86 @@ interrupt void smRX_D(void)
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP8; // Issue PIE ACK
 }
 
+uint8_t b = 0x00;
+
+uint8_t rec_parity_bit = 0;
+
+
+interrupt void xint1_isr(void)
+{
+    //Tratamento da interrupção
+    CpuTimer2Regs.TCR.bit.TSS = 0;
+    b = (unsigned char)0x00;
+    // Desabilita XINT1
+    XIntruptRegs.XINT1CR.bit.ENABLE = 0;
+    // Desabilita XINT1 dentro do PIE Group 1 / INTx4
+    PieCtrlRegs.PIEIER1.bit.INTx4 = 0;
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
+}
+
+interrupt void timer2_rx_stm_isr(void){
+   
+    if(CpuTimer2.InterruptCount == 0)
+    {
+        b |= (((unsigned char)GpioDataRegs.GPCDAT.bit.GPIO83) << CpuTimer2.InterruptCount);
+        CpuTimer2Regs.PRD.all = BAUD_TIME_SOFT_SERIAL;
+    }
+    else if((0 < CpuTimer2.InterruptCount) && (CpuTimer2.InterruptCount < 8))
+    {
+        b |= (((unsigned char)GpioDataRegs.GPCDAT.bit.GPIO83) << CpuTimer2.InterruptCount);
+    }
+    else if(CpuTimer2.InterruptCount == 8)
+    {
+        rec_parity_bit = GpioDataRegs.GPCDAT.bit.GPIO83;
+    
+        CpuTimer2Regs.TCR.bit.TSS = 1;
+        
+        CpuTimer2Regs.PRD.all = ONE_HALF_BIT_TIME;
+        //Habilita XINT1
+        XIntruptRegs.XINT1CR.bit.ENABLE = 1;
+        //Habilita canal da XINT1 no PIE
+        PieCtrlRegs.PIEIER1.bit.INTx4 = 1;
+        rx_interrupt(&rx_USB, b);
+    }
+    
+    ++CpuTimer2.InterruptCount;
+    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
+    CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
+}
+
+
+void serial_rx_to_stm_Init(void){
+
+    CpuTimer2Regs.PRD.all = ONE_HALF_BIT_TIME;
+    CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
+    CpuTimer2Regs.TCR.bit.FREE = 1; //CPU Timer Free Run
+    CpuTimer2Regs.TCR.bit.TIE = 1;  //CPU Timer Interrupt Enable
+    CpuTimer2Regs.TCR.bit.TIF = 1;  //CPU Timer Overflow Flag
+    CpuTimer2Regs.TPR.all  = 0;     //CPU Timer Prescale Register
+    CpuTimer2Regs.TPRH.all = 0;     //CPU Timer Prescale Register High
+    CpuTimer2Regs.TCR.bit.TSS = 1;  //CPU Timer stop status bit
+  
+    EALLOW;
+    PieVectTable.TINT2 = &timer2_rx_stm_isr;
+    // Vetor da XINT1
+    PieVectTable.XINT1 = &xint1_isr;
+
+   // Seleciona GPIO83 como fonte da XINT1
+   InputXbarRegs.INPUT1SELECT = RX_STM_SOFT;   // exemplo: conecta GPIO83 ao XINT1
+   XintRegs.XINT1CR.bit.POLARITY = 0; // borda de descida
+   EDIS;
+
+}
+
+void rx_byte_stm_soft(void)
+{
+    CpuTimer2.InterruptCount = 0;
+    XintRegs.XINT1CR.bit.ENABLE = 1;   // habilita XINT1
+    //Habilita canal da XINT1 no PIE
+    PieCtrlRegs.PIEIER1.bit.INTx4 = 1;
+
+    
+}
 
 //volatile int estado_ant = 0, estado_at = 0, start_save = 0;
 

@@ -86,12 +86,13 @@ STATE(SM_TENSAO_CFG){
     init_tx_serial(&tx_Fibra2, tx_C_byte, 0);
     init_tx_serial(&tx_Fibra3, tx_B_byte, 0);
 
+    init_rx_serial(&rx_USB, buffer_USB, sizeof(buffer_USB));
     init_rx_serial(&rx_Fibra1, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
     init_rx_serial(&rx_Fibra2, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
     init_rx_serial(&rx_Fibra3, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
     init_rx_serial(&rx_Fibra4, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
 
-    init_rx_serial(&rx_USB, buffer_USB, sizeof(buffer_USB));
+    
 
     tx_byte_soft(0x01);
     tx_D_byte(0x01);
@@ -909,7 +910,8 @@ STATE(SM_TENSAO_SYNC){
     __asm(" NOP");__asm(" NOP");__asm(" NOP");__asm(" NOP");__asm(" NOP");
     __asm(" NOP");__asm(" NOP");__asm(" NOP");__asm(" NOP");__asm(" NOP");
 
-    GPIO_WritePin(CONVST, 1);
+    //GPIO_WritePin(CONVST, 1);
+    GpioDataRegs.GPADAT.bit.GPIO28 = 1;
     acquisition_counter++;
     CpuTimer2Regs.TCR.bit.TSS = 1;
 
@@ -930,7 +932,8 @@ STATE(SM_TENSAO_CONV){
         START(35000);
     }
     if(IS_FINISHED){
-        GPIO_WritePin(CONVST, 0);
+        //GPIO_WritePin(CONVST, 0);
+        GpioDataRegs.GPADAT.bit.GPIO28 = 0;
         CPLD_WE(0);
         NEXT_STATE(SM_TENSAO_CALC_FAS);
     }
