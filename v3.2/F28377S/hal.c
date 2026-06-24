@@ -33,11 +33,14 @@ uint32_t delay_v_T4[syncMax];
 
 volatile uint16_t delayF = 0;
 
-volatile t_adc_results ADC_Results;
-volatile t_temp_data Temp_Results;
+//volatile t_adc_results ADC_Results;
+//volatile t_temp_data Temp_Results;
 
 CiseiRxChannel rx_USB;
 CiseiTxChannel tx_USB;
+
+CiseiRxChannel rx_Fibra0;
+CiseiTxChannel tx_Fibra0;
 
 CiseiRxChannel rx_Fibra1;
 CiseiTxChannel tx_Fibra1;
@@ -61,7 +64,6 @@ void syncInt_ena(){
     PieCtrlRegs.PIEIER1.bit.INTx4 = 1;
     XintRegs.XINT1CR.bit.ENABLE = 1;
     EINT;
-
 }
 
 float64 analogEq(Uint16 adcres, Uint16 bits){
@@ -133,21 +135,11 @@ void init_hal(void){
     SpiaRegs.SPIFFRX.all = 0x2044;
     SpiaRegs.SPIFFCT.all = 0x0;
 
-    InitSpi();
+    //InitSpi();
 }
-
 
 interrupt void syncPulse(){
     delay_T1 = CpuTimer1Regs.TIM.all;
-    if(delayF){
-        GpioDataRegs.GPBDAT.bit.GPIO47 = 1; // Placa Nova
-    }
-    if(startCap){
-        GPIO_WritePin(CONVST, 1);
-        GPIO_WritePin(54, 0);
-        acquisition_counter++;
-        startCap = 0;
-    }
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1; // Issue PIE ACK
 }
 
@@ -237,11 +229,6 @@ void initInts(){
     EALLOW;
     PieVectTable.TIMER1_INT = &timer1_isr;
 
-    //PieVectTable.TIMER2_INT = &timer2_isr;
-
-    PieVectTable.ADCB1_INT = &readADC;
-//  PieVectTable.TIMER0_INT = &runADC;
-
     PieVectTable.SCIA_RX_INT = &smRX_A;
     PieVectTable.SCIA_TX_INT = &smTX_A;
 
@@ -265,7 +252,7 @@ void initInts(){
 
     PieCtrlRegs.PIECTRL.bit.ENPIE = 1;  // Enable the PIE block
 
-    PieCtrlRegs.PIEIER1.bit.INTx2 = 1;  // PIE Group 1, INT2 - ADCB1_INT
+    //PieCtrlRegs.PIEIER1.bit.INTx2 = 1;  // PIE Group 1, INT2 - ADCB1_INT
     //PieCtrlRegs.PIEIER1.bit.INTx7 = 1;  // PIE Group 1, INT7 - TIMER0_INT
     PieCtrlRegs.PIEIER1.bit.INTx4 = 1;  // PIE Group 1, INT4 - XINT1_INT
     PieCtrlRegs.PIEIER1.bit.INTx5 = 1;  // PIE Group 1, INT5 - XINT2_INT
@@ -290,11 +277,10 @@ void initInts(){
     EINT;
 
     EALLOW;
-    InputXbarRegs.INPUT4SELECT = RXA;     // X-Bar Input4 -> RXA
-    InputXbarRegs.INPUT5SELECT = RXC;     // X-Bar Input5 -> RXC
+    InputXbarRegs.INPUT1SELECT = RXA;     // X-Bar Input4 -> RXA
+    InputXbarRegs.INPUT2SELECT = RXB;     // X-Bar Input6 -> RXB
+    InputXbarRegs.INPUT3SELECT = RXC;     // X-Bar Input5 -> RXC
     InputXbarRegs.INPUT4SELECT = RXD;     // X-Bar Input4 -> RXD
-    InputXbarRegs.INPUT6SELECT = RXB;     // X-Bar Input6 -> RXB
-    
     EDIS;
 
     XintRegs.XINT1CR.bit.ENABLE = 1;      // XINT1 - Enable
@@ -360,8 +346,8 @@ void sysInit(void){
 
 void GPIOInit(void){
 
-    InitEPwm1Gpio();
-    InitSpiaGpio();
+    //InitEPwm1Gpio();
+    //InitSpiaGpio();
 
     //Configura leds como out e apaga
     GPIO_SetupPinMux(LED1, GPIO_MUX_CPU1, 0);
@@ -522,6 +508,7 @@ void configTimer(void){
 
 }
 
+
 void resetTimer0(void){
     CpuTimer0Regs.TCR.bit.TRB = 1;
 }
@@ -552,14 +539,14 @@ void configureSCI_sync(void){
 
 void configureSCI_UART(void){
 
-    GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 1);
+    GPIO_SetupPinMux(RXA, GPIO_MUX_CPU1, 5);
     GPIO_SetupPinOptions(RXA, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 1);
+    GPIO_SetupPinMux(TXA, GPIO_MUX_CPU1, 5);
     GPIO_SetupPinOptions(TXA, GPIO_OUTPUT, GPIO_ASYNC);
 
-    GPIO_SetupPinMux(RXB, GPIO_MUX_CPU1, 3);
+    GPIO_SetupPinMux(RXB, GPIO_MUX_CPU1, 5);
     GPIO_SetupPinOptions(RXB, GPIO_INPUT, GPIO_PUSHPULL);
-    GPIO_SetupPinMux(TXB, GPIO_MUX_CPU1, 3);
+    GPIO_SetupPinMux(TXB, GPIO_MUX_CPU1, 5);
     GPIO_SetupPinOptions(TXB, GPIO_OUTPUT, GPIO_ASYNC);
 
     GPIO_SetupPinMux(RXC, GPIO_MUX_CPU1, 6);
@@ -621,6 +608,7 @@ interrupt void timer2_tx_stm_isr(void){
    else if(CpuTimer2.InterruptCount == 10)
    {
        GpioDataRegs.GPCDAT.bit.GPIO84 = 1;
+       tx_interrupt(&tx_USB);
        CpuTimer2Regs.TCR.bit.TSS = 1;
    }
     ++CpuTimer2.InterruptCount;
@@ -628,6 +616,36 @@ interrupt void timer2_tx_stm_isr(void){
 	PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
     CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
 }
+
+interrupt void timer2_tx_fpga_isr(void){
+   //Start bit
+   if(CpuTimer2.InterruptCount == 0)
+   {
+       GpioDataRegs.GPADAT.bit.GPIO28 = (*ptr_global >> CpuTimer2.InterruptCount) & 0x00;
+   }
+   //Data byte
+   else if(CpuTimer2.InterruptCount < 9)
+   {
+       GpioDataRegs.GPADAT.bit.GPIO28 = (*ptr_global >> (CpuTimer2.InterruptCount - 1)) & 0x01;
+   }
+   //Parity bit
+   else if(CpuTimer2.InterruptCount == 9)
+   {
+       GpioDataRegs.GPADAT.bit.GPIO28 = parity_bit;
+   }
+   //Stop bit
+   else if(CpuTimer2.InterruptCount == 10)
+   {
+       GpioDataRegs.GPADAT.bit.GPIO28 = 1;
+       tx_interrupt(&tx_Fibra0);
+       CpuTimer2Regs.TCR.bit.TSS = 1;
+   }
+    ++CpuTimer2.InterruptCount;
+    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
+    CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
+    PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
+}
+
 
 void serial_tx_to_stm_Init(void){
 
@@ -642,6 +660,23 @@ void serial_tx_to_stm_Init(void){
 
     EALLOW;
     PieVectTable.TINT2 = &timer2_tx_stm_isr;
+    EDIS;
+
+}
+
+void serial_tx_to_fpga_Init(void){
+
+    CpuTimer2Regs.PRD.all = BAUD_TIME_SOFT_SERIAL;
+    CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
+    CpuTimer2Regs.TCR.bit.FREE = 1; //CPU Timer Free Run
+    CpuTimer2Regs.TCR.bit.TIE = 1;  //CPU Timer Interrupt Enable
+    CpuTimer2Regs.TCR.bit.TIF = 1;  //CPU Timer Overflow Flag
+    CpuTimer2Regs.TPR.all  = 0;     //CPU Timer Prescale Register
+    CpuTimer2Regs.TPRH.all = 0;     //CPU Timer Prescale Register High
+    CpuTimer2Regs.TCR.bit.TSS = 1;  //CPU Timer stop status bit
+
+    EALLOW;
+    PieVectTable.TINT2 = &timer2_tx_fpga_isr;
     EDIS;
 
 }
@@ -943,6 +978,7 @@ interrupt void xint1_isr(void)
     XIntruptRegs.XINT1CR.bit.ENABLE = 0;
     // Desabilita XINT1 dentro do PIE Group 1 / INTx4
     PieCtrlRegs.PIEIER1.bit.INTx4 = 0;
+    CpuTimer2.InterruptCount = 0;
     PieCtrlRegs.PIEACK.all = PIEACK_GROUP1;
 }
 
@@ -993,10 +1029,10 @@ void serial_rx_to_stm_Init(void){
     // Vetor da XINT1
     PieVectTable.XINT1 = &xint1_isr;
 
-   // Seleciona GPIO83 como fonte da XINT1
-   InputXbarRegs.INPUT1SELECT = RX_STM_SOFT;   // exemplo: conecta GPIO83 ao XINT1
-   XintRegs.XINT1CR.bit.POLARITY = 0; // borda de descida
-   EDIS;
+    // Seleciona GPIO83 como fonte da XINT1
+    InputXbarRegs.INPUT1SELECT = RX_STM_SOFT;   // exemplo: conecta GPIO83 ao XINT1
+    XintRegs.XINT1CR.bit.POLARITY = 0; // borda de descida
+    EDIS;
 
 }
 
@@ -1006,8 +1042,6 @@ void rx_byte_stm_soft(void)
     XintRegs.XINT1CR.bit.ENABLE = 1;   // habilita XINT1
     //Habilita canal da XINT1 no PIE
     PieCtrlRegs.PIEIER1.bit.INTx4 = 1;
-
-    
 }
 
 //volatile int estado_ant = 0, estado_at = 0, start_save = 0;

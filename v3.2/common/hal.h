@@ -268,6 +268,7 @@ uint8_t rx_D_byte();
 */
 void init_hal(void);
 
+
 /**
 * @brief Fun��o de inicializa��o da HAL para interfaces de corrente.
 * @details Esta fun��o inicializa a camada de abstra��o de hardware
@@ -400,6 +401,8 @@ uint32_t now(void);
 void serial_rx_to_stm_Init(void);
 
 void serial_tx_to_stm_Init(void);
+
+void serial_tx_to_fpga_Init(void)
 
 /**
 * @brief Fun��o para inicializar a SCI-A.

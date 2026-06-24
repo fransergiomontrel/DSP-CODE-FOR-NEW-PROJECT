@@ -16,24 +16,20 @@
 #define SCLB  35 // I2C
 
 //SCI A
-#define TXA   29 // TX.A FIBRA
-#define RXA   28 // RX.A FIBRA
+#define TXA   84 // TX.A FIBRA
+#define RXA   85 // RX.A FIBRA
 
 //SCI B
-#define TXB   22 // TX.B USB
-#define RXB   23 // RX.B USB
+#define TXB   86 // TX.B USB
+#define RXB   87 // RX.B USB
 
 //SCI C
 #define TXC   89 // TX.C FIBRA
 #define RXC   90 // RX.C FIBRA
 
 // SCI D
-#define TXD   47 // TX.D FIBRA
-#define RXD   46 // RX.D FIBRA
-
-//I2C
-#define SDA   66
-#define SCL   69
+#define TXD   93 // TX.D FIBRA
+#define RXD   94 // RX.D FIBRA
 
 //JP6
 #define DEBUG1 32

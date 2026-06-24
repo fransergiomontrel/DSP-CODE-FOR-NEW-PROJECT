@@ -74,7 +74,4 @@ STATE(SM_TX_CHKSUM_LSB);        ///< Estado sinalizando que o byte LSB de CHKSUM
 STATE(SM_TX_CHKSUM_MSB);        ///< Estado sinalizando que o byte MSB de CHKSUM est� sendo transmitido.
 STATE(SM_TX_FINALIZE);          ///< Estado sinalizando o fim da transmiss�o serial.
 
-STATE(SM_START_SOFT);                ///< Dispara a comunica��o serial (inicia a transmiss�o do frame).
-STATE(SM_TX_WAITING_SOFT);           ///< Estado aguardando o disparo da transmiss�o serial
-STATE(SM_TX_DATA_SOFT);              ///< Transmitindo os dados do payload na porta serial.
 #endif

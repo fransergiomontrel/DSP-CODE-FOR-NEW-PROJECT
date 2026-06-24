@@ -53,6 +53,8 @@ extern uint32_t delay_v_T4[syncMax];
 
 extern CiseiRxChannel rx_USB;
 extern CiseiTxChannel tx_USB;
+extern CiseiRxChannel rx_Fibra0;
+extern CiseiTxChannel tx_Fibra0;
 extern CiseiRxChannel rx_Fibra1;
 extern CiseiTxChannel tx_Fibra1;
 extern CiseiRxChannel rx_Fibra2;
@@ -61,7 +63,6 @@ extern CiseiRxChannel rx_Fibra3;
 extern CiseiTxChannel tx_Fibra3;
 extern CiseiRxChannel rx_Fibra4;
 extern CiseiTxChannel tx_Fibra4;
-
 
 STATE(SM_TENSAO_INIT){
     init_hal();
@@ -81,44 +82,47 @@ STATE(SM_TENSAO_TEST){
 STATE(SM_TENSAO_CFG){
 
     init_tx_serial_software(&tx_USB, tx_byte_soft, 0);
+    init_tx_serial_software(&tx_Fibra0, tx_byte_soft, 0);
     init_tx_serial(&tx_Fibra1, tx_D_byte, 0);
     init_tx_serial(&tx_Fibra4, tx_A_byte, 0);
     init_tx_serial(&tx_Fibra2, tx_C_byte, 0);
     init_tx_serial(&tx_Fibra3, tx_B_byte, 0);
 
     init_rx_serial(&rx_USB, buffer_USB, sizeof(buffer_USB));
+    init_rx_serial(&rx_Fibra0, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
     init_rx_serial(&rx_Fibra1, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
     init_rx_serial(&rx_Fibra2, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
     init_rx_serial(&rx_Fibra3, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
     init_rx_serial(&rx_Fibra4, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
 
-    
-
+    serial_tx_to_fpga_Init();
     tx_byte_soft(0x01);
+
     tx_D_byte(0x01);
     tx_A_byte(0x01);
     tx_C_byte(0x01);
     tx_B_byte(0x01);
 
     activateUART_Ints();
-    CPLD_CFG_AD();
-
+    //Did by FPGA itself
+    //CPLD_CFG_AD();
+    serial_rx_to_stm_Init();
+    rx_byte_stm_soft();
     NEXT_STATE(SM_TENSAO_WAIT);
 }
 
 STATE(SM_TENSAO_WAIT){
     if(rx_frameReceived(&rx_USB, &RX_USB_Bytes)){
 
-         if(rx_getFrameType(&rx_USB) == SYNC_FRAME){
+        if(rx_getFrameType(&rx_USB) == SYNC_FRAME){
             memcpy(&syncPayload, rx_USB.pBuffer, sizeof(tms320_sync_frame_t));
             nominal_frequency = syncPayload.frequency;
             number_IEDs = syncPayload.number_ieds;
-            resetResultBuffer();
             NEXT_STATE(SM_TENSAO_DELAY);
 
         }else if(rx_getFrameType(&rx_USB) == DATA_REQUEST){
-            memcpy(&syncPayload, rx_USB.pBuffer, sizeof(tms320_sync_frame_t));
-            NEXT_STATE(SM_TENSAO_TX);
+             memcpy(&syncPayload, rx_USB.pBuffer, sizeof(tms320_sync_frame_t));
+             NEXT_STATE(SM_TENSAO_TX);
         }
 
         rx_free_frame(&rx_USB);
@@ -334,10 +338,10 @@ STATE(SM_TENSAO_DELAY){
         START(100); //100 valor antigo
         while(!IS_FINISHED);
 
-        GpioDataRegs.GPBCLEAR.bit.GPIO47 = 1; // TX.D
+        GpioDataRegs.GPCCLEAR.bit.GPIO84 = 1; // TX.A
+        GpioDataRegs.GPCCLEAR.bit.GPIO86 = 1; // TX.B
         GpioDataRegs.GPCCLEAR.bit.GPIO89 = 1; // TX.C
-        GpioDataRegs.GPACLEAR.bit.GPIO22 = 1; // TX.B
-        GpioDataRegs.GPACLEAR.bit.GPIO29 = 1; // TX.A
+        GpioDataRegs.GPCCLEAR.bit.GPIO93 = 1; // TX.D
 
         configureSCI_sync();
 
@@ -346,10 +350,10 @@ STATE(SM_TENSAO_DELAY){
 
         delay_T1 = delay_T2 = delay_T3 = delay_T4 =  (uint32_t)-1;
 
-        GpioDataRegs.GPBSET.bit.GPIO47 = 1; // TX.D
+        GpioDataRegs.GPCSET.bit.GPIO84 = 1; // TX.A
+        GpioDataRegs.GPCSET.bit.GPIO86 = 1; // TX.B
         GpioDataRegs.GPCSET.bit.GPIO89 = 1; // TX.C
-        GpioDataRegs.GPASET.bit.GPIO22 = 1; // TX.B
-        GpioDataRegs.GPASET.bit.GPIO29 = 1; // TX.A
+        GpioDataRegs.GPCSET.bit.GPIO93 = 1; // TX.D
 
         CpuTimer1Regs.TCR.bit.TSS = 0;
 
@@ -364,6 +368,15 @@ STATE(SM_TENSAO_DELAY){
 
 STATE(SM_TENSAO_TX_SYNC){
     if(JUST_ARRIVED){
+        serial_tx_to_fpga_Init();
+        if(nominal_frequency == NOM_FREQ_60HZ)
+        {
+            start_tx_frame_software(&tx_Fibra0, SYNC_FRAME_60HZ, 0x0, 0x0);
+        }
+        else if (nominal_frequency == NOM_FREQ_50HZ)
+        {
+            start_tx_frame_software(&tx_Fibra0, SYNC_FRAME_50HZ, 0x0, 0x0);
+        }
         //Send sync to current module
         if(number_IEDs == ONE_FIBER){
 
@@ -434,7 +447,7 @@ STATE(SM_TENSAO_TX_SYNC){
     }
     if(IS_FINISHED){
         //Configure pins
-
+        GpioDataRegs.GPASET.bit.GPIO28 = 1; // TX.0
         set_TXA();
         set_TXD();
         set_TXC();
@@ -450,13 +463,15 @@ uint32_t i1, i2, i3, i4;
 STATE(SM_TENSAO_SYNC){
 
     startCapture();
+
     START(100);
     while(!IS_FINISHED);
 
-    GpioDataRegs.GPBCLEAR.bit.GPIO47 = 1; // TX.D
+    GpioDataRegs.GPACLEAR.bit.GPIO28 = 1; // TX.0
+    GpioDataRegs.GPCCLEAR.bit.GPIO84 = 1; // TX.A
+    GpioDataRegs.GPCCLEAR.bit.GPIO86 = 1; // TX.B
     GpioDataRegs.GPCCLEAR.bit.GPIO89 = 1; // TX.C
-    GpioDataRegs.GPACLEAR.bit.GPIO22 = 1; // TX.B
-    GpioDataRegs.GPACLEAR.bit.GPIO29 = 1; // TX.A
+    GpioDataRegs.GPCCLEAR.bit.GPIO93 = 1; // TX.D
 
     START(500);
     while(!IS_FINISHED);
@@ -469,7 +484,7 @@ STATE(SM_TENSAO_SYNC){
         CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
         CpuTimer2Regs.TCR.bit.TRB = 1;
         CpuTimer2Regs.TCR.bit.TSS = 0;
-        GpioDataRegs.GPBSET.bit.GPIO47 = 1;
+        GpioDataRegs.GPCSET.bit.GPIO93 = 1;
         while(CpuTimer2Regs.TIM.all >= i2);
 
     }
@@ -482,18 +497,18 @@ STATE(SM_TENSAO_SYNC){
             CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
             CpuTimer2Regs.TCR.bit.TRB = 1;
             CpuTimer2Regs.TCR.bit.TSS = 0;
-    
-        while(CpuTimer2Regs.TIM.all >= i2);
-
+            GpioDataRegs.GPCSET.bit.GPIO93 = 1; // TX.D
+            while(CpuTimer2Regs.TIM.all >= i2);
+            GpioDataRegs.GPCSET.bit.GPIO89 = 1; // TX.C
         }else{
             i1 = contador - (data_frame.pVoltage.sync_data.T2 - data_frame.pVoltage.sync_data.T1);
             i2 = contador - data_frame.pVoltage.sync_data.T1;
             CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
             CpuTimer2Regs.TCR.bit.TRB = 1;
-
             CpuTimer2Regs.TCR.bit.TSS = 0;
-    
+            GpioDataRegs.GPCSET.bit.GPIO89 = 1; // TX.C
             while(CpuTimer2Regs.TIM.all >= i2);
+            GpioDataRegs.GPCSET.bit.GPIO93 = 1; // TX.D
         }
 
     }
@@ -534,7 +549,7 @@ STATE(SM_TENSAO_SYNC){
                 CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
                 CpuTimer2Regs.TCR.bit.TRB = 1;
                 CpuTimer2Regs.TCR.bit.TSS = 0;
-                GpioDataRegs.GPBSET.bit.GPIO47 = 1; // TX.D
+                GpioDataRegs.GPCSET.bit.GPIO93 = 1; // TX.D
                 while(CpuTimer2Regs.TIM.all >= i2);
                 //Check which among 2 slaver IED has first bigger time propagation
                 switch (ordered_list_Tname[1])
@@ -542,10 +557,10 @@ STATE(SM_TENSAO_SYNC){
                     case '2':
                         GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                         while(CpuTimer2Regs.TIM.all >= i1);
-                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                     break;
                     case '3':
-                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                         while(CpuTimer2Regs.TIM.all >= i1);
                         GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                     break;
@@ -564,14 +579,14 @@ STATE(SM_TENSAO_SYNC){
                 switch (ordered_list_Tname[1])
                 {
                     case '1':
-                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                         while(CpuTimer2Regs.TIM.all >= i1);
-                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                     break;
                     case '3':
-                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                         while(CpuTimer2Regs.TIM.all >= i1);
-                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                     break;
                 }
 
@@ -582,20 +597,20 @@ STATE(SM_TENSAO_SYNC){
                 CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
                 CpuTimer2Regs.TCR.bit.TRB = 1;
                 CpuTimer2Regs.TCR.bit.TSS = 0;
-                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                 while(CpuTimer2Regs.TIM.all >= i2);
                 //Check which among 2 slaver IED has first bigger time propagation
                 switch (ordered_list_Tname[1])
                 {
                     case '1':
-                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                         while(CpuTimer2Regs.TIM.all >= i1);
                         GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                     break;
                     case '2':
                         GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                         while(CpuTimer2Regs.TIM.all >= i1);
-                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                     break;
                 }
 
@@ -644,7 +659,7 @@ STATE(SM_TENSAO_SYNC){
                 CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
                 CpuTimer2Regs.TCR.bit.TRB = 1;
                 CpuTimer2Regs.TCR.bit.TSS = 0;
-                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                 while(CpuTimer2Regs.TIM.all >= i3);
                 //Check which among 2 slaver IED has first bigger time propagation
                 switch (ordered_list_Tname[2])
@@ -655,46 +670,46 @@ STATE(SM_TENSAO_SYNC){
                         switch (ordered_list_Tname[1])
                         {
                             case IED_3:
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                             break;
                             case IED_4:
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                             break;
                         }
                     break;
                     case IED_3:
-                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                         while(CpuTimer2Regs.TIM.all >= i2);
                         switch (ordered_list_Tname[1])
                         {
                             case IED_2:
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                             break;
                             case IED_4:
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                                 while(CpuTimer2Regs.TIM.all >= i1);
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                             break;
                         }
                     break;
                     case IED_4:
-                        GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                        GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                         while(CpuTimer2Regs.TIM.all >= i2);
                         switch (ordered_list_Tname[1])
                         {
                             case IED_2:
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                             break;
                             case IED_3:
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                                 while(CpuTimer2Regs.TIM.all >= i1);
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                             break;
@@ -714,53 +729,53 @@ STATE(SM_TENSAO_SYNC){
                 switch (ordered_list_Tname[2])
                 {
                     case IED_1:
-                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                         while(CpuTimer2Regs.TIM.all >= i2);
                         switch (ordered_list_Tname[1])
                         {
                             case IED_3:
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                             break;
                             case IED_4:
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                             break;
                         }
                     break;
                     case IED_3:
-                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                         while(CpuTimer2Regs.TIM.all >= i2);
                         switch (ordered_list_Tname[1])
                         {
                             case IED_1:
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                             break;
                             case IED_4:
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                             break;
                         }
                     break;
                     case IED_4:
-                        GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                        GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                         while(CpuTimer2Regs.TIM.all >= i2);
                         switch (ordered_list_Tname[1])
                         {
                             case IED_1:
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                             break;
                             case IED_3:
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                             break;
                         }
                     break;
@@ -774,23 +789,23 @@ STATE(SM_TENSAO_SYNC){
                 CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
                 CpuTimer2Regs.TCR.bit.TRB = 1;
                 CpuTimer2Regs.TCR.bit.TSS = 0;
-                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                 while(CpuTimer2Regs.TIM.all >= i3);
                 //Check which among 2 slaver IED has first bigger time propagation
                 switch (ordered_list_Tname[2])
                 {
                     case IED_1:
-                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                         while(CpuTimer2Regs.TIM.all >= i2);
                         switch (ordered_list_Tname[1])
                         {
                             case IED_2:
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                             break;
                             case IED_4:
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                                 while(CpuTimer2Regs.TIM.all >= i1);
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                             break;
@@ -802,31 +817,31 @@ STATE(SM_TENSAO_SYNC){
                         switch (ordered_list_Tname[1])
                         {
                             case IED_1:
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                             break;
                             case IED_4:
-                                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                             break;
                         }
                     break;
                     case IED_4:
-                        GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                        GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                         while(CpuTimer2Regs.TIM.all >= i2);
                         switch (ordered_list_Tname[1])
                         {
                             case IED_1:
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                                 while(CpuTimer2Regs.TIM.all >= i1);
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                             break;
                             case IED_2:
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                             break;
                         }
                     break;
@@ -840,23 +855,23 @@ STATE(SM_TENSAO_SYNC){
                 CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
                 CpuTimer2Regs.TCR.bit.TRB = 1;
                 CpuTimer2Regs.TCR.bit.TSS = 0;
-                GpioDataRegs.GPASET.bit.GPIO29 = 1; //TX.A
+                GpioDataRegs.GPCSET.bit.GPIO84 = 1; //TX.A
                 while(CpuTimer2Regs.TIM.all >= i3);
                 //Check which among 2 slaver IED has first bigger time propagation
                 switch (ordered_list_Tname[2])
                 {
                     case IED_1:
-                        GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                        GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                         while(CpuTimer2Regs.TIM.all >= i2);
                         switch (ordered_list_Tname[1])
                         {
                             case IED_2:
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                             break;
                             case IED_3:
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                                 while(CpuTimer2Regs.TIM.all >= i1);
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                             break;
@@ -868,31 +883,31 @@ STATE(SM_TENSAO_SYNC){
                         switch (ordered_list_Tname[1])
                         {
                             case IED_1:
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                             break;
                             case IED_3:
-                                GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                                GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                             break;
                         }
                     break;
                     case IED_3:
-                        GpioDataRegs.GPASET.bit.GPIO22 = 1; //TX.B
+                        GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                         while(CpuTimer2Regs.TIM.all >= i2);
                         switch (ordered_list_Tname[1])
                         {
                             case IED_1:
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                                 while(CpuTimer2Regs.TIM.all >= i1);
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                             break;
                             case IED_2:
                                 GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                                 while(CpuTimer2Regs.TIM.all >= i1);
-                                GpioDataRegs.GPBSET.bit.GPIO47 = 1; //TX.D
+                                GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                             break;
                         }
                     break;                    
@@ -911,7 +926,7 @@ STATE(SM_TENSAO_SYNC){
     __asm(" NOP");__asm(" NOP");__asm(" NOP");__asm(" NOP");__asm(" NOP");
 
     //GPIO_WritePin(CONVST, 1);
-    GpioDataRegs.GPADAT.bit.GPIO28 = 1;
+    GpioDataRegs.GPASET.bit.GPIO28 = 1; //TX.0
     acquisition_counter++;
     CpuTimer2Regs.TCR.bit.TSS = 1;
 
@@ -933,7 +948,7 @@ STATE(SM_TENSAO_CONV){
     }
     if(IS_FINISHED){
         //GPIO_WritePin(CONVST, 0);
-        GpioDataRegs.GPADAT.bit.GPIO28 = 0;
+        GpioDataRegs.GPACLEAR.bit.GPIO28 = 1; //TX.0
         CPLD_WE(0);
         NEXT_STATE(SM_TENSAO_CALC_FAS);
     }

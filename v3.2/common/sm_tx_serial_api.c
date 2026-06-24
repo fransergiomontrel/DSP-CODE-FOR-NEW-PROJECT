@@ -32,9 +32,9 @@ void init_tx_serial_software(CiseiTxChannel* tx, tpTxByte pTxByteFunc, boolean d
     tx->pTxByte = pTxByteFunc;
     tx->tx_start = 0;
     tx->estado = 0;
-	INIT(tx->sm_tx_serial_api, SM_TX_WAITING_SOFT, tx);
-	//if(tx->tx_FF)
-	    //tx->pTxByte(0xFF);
+	INIT(tx->sm_tx_serial_api, SM_TX_WAITING, tx);
+	if(tx->tx_FF)
+	    tx->pTxByte(0xFF);
 
 	//TXInts(1);
 
@@ -70,7 +70,7 @@ uint8_t start_tx_frame(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPay
 uint8_t start_tx_frame_software(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPayload, uint32_t nBytes) {
     //TXInts(0);
 
-	if (!COMPARE(tx->sm_tx_serial_api, SM_TX_WAITING_SOFT)){
+	if (!COMPARE(tx->sm_tx_serial_api, SM_TX_WAITING)){
 	    //TXInts(1);
         return 0;
 	}
@@ -85,7 +85,7 @@ uint8_t start_tx_frame_software(CiseiTxChannel* tx, teSerialFrameType type, uint
     if(tx->tx_FF)
         tx->tx_start = 1;
     else{
-        INIT(tx->sm_tx_serial_api, SM_START_SOFT, tx);
+        INIT(tx->sm_tx_serial_api, SM_START, tx);
         tx->pTxByte(SOH);
     }
 
@@ -109,41 +109,14 @@ STATE(SM_TX_WAITING) {
     }
 }
 
-STATE(SM_TX_WAITING_SOFT) {
-    sm_tx->estado = 1;
-    if(sm_tx->tx_FF){
-        if(sm_tx->tx_start){
-            sm_tx->tx_start = 0;
-            sm_tx->pTxByte(SOH);
-            NEXT_STATE(SM_START);
-        }else{
-
-            sm_tx->pTxByte(0xFF);
-        }
-    }
-}
-
 STATE(SM_START) {
     sm_tx->estado = 2;
     sm_tx->pTxByte((uint8_t)sm_tx->type); // Inicia a transmissao pelo SOF
 	NEXT_STATE(SM_TX_DATA);
 }
 
-STATE(SM_START_SOFT) {
-    sm_tx->estado = 2;
-    sm_tx->pTxByte((uint8_t)sm_tx->type); // Inicia a transmissao pelo SOF
-	NEXT_STATE(SM_TX_DATA_SOFT);
-}
-
 STATE(SM_TX_DATA) {
-    sm_tx->estado = 3;
-	if (sm_tx->index_to_tx == sm_tx->bytes_to_tx) {
-        sm_tx->pTxByte(EOT); // Inicia a transmissao pelo SOF
-		NEXT_STATE(SM_TX_CHKSUM_LSB);
-		return;
-	}
 
-    STATE(SM_TX_DATA_SOFT) {
     sm_tx->estado = 3;
 	if (sm_tx->index_to_tx == sm_tx->bytes_to_tx) {
         sm_tx->pTxByte(EOT); // Inicia a transmissao pelo SOF
@@ -161,6 +134,7 @@ STATE(SM_TX_DATA) {
     sm_tx->pTxByte(aux);
     sm_tx->chksum = sm_tx->chksum + aux;
     sm_tx->index_to_tx = sm_tx->index_to_tx + 1;	// A cada byte transmitido, diminui o numero de envios
+
 }
 
 // Eventos: TX_INT
