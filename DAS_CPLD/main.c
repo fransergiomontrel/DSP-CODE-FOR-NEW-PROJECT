@@ -14,16 +14,15 @@
 #include "common/sm_rx_serial_api.h"
 #include "common/sm_tx_serial_api.h"
 #include "common/sm_tensao.h"
-#include "common/sm_corrente.h"
+
 
 #include "F28377S/pins.h"
 #include "F28377S/sci_io.h"
-#include "F28377S/LCD_I2C.h"
+
 
 /**
  * main.c
  */
-#define CORRENTE
 
 int main(void)
 {
@@ -37,5 +36,5 @@ int main(void)
         EXEC(sm_tensao);
     }
 
-	return 0;
+	//return 0;
 }

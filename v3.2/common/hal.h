@@ -14,41 +14,21 @@
 #include <math.h>
 #include "defines.h"
 
-
-
-#ifdef __TMS320C28X__
-
 #include "F28x_Project.h"
 #include "F28377S/pins.h"
 
+typedef struct CiseiRxChannel CiseiRxChannel;
+
+#define set_TXA()  {GpioDataRegs.GPASET.all   = (1L<<TXA);}
+#define clr_TXA()  {GpioDataRegs.GPACLEAR.all = (1L<<TXA);}
 
 
-#if defined (BOARD_NEW)
-#if defined (TENSAO)
-    #define set_TXA()  {GpioDataRegs.GPASET.all   = (1L<<TXA);}
-    #define clr_TXA()  {GpioDataRegs.GPACLEAR.all = (1L<<TXA);}
-#else
-    #define set_TXA()  {GpioDataRegs.GPBSET.all   = (1L<<(TXA-32));}
-    #define clr_TXA()  {GpioDataRegs.GPBCLEAR.all = (1L<<(TXA-32));}
-#endif
+#define set_TXB()  {GpioDataRegs.GPASET.all   = (1L<<TXB);}
+#define clr_TXB()  {GpioDataRegs.GPACLEAR.all = (1L<<TXB);}
 
-    #define set_TXB()  {GpioDataRegs.GPASET.all   = (1L<<TXB);}
-    #define clr_TXB()  {GpioDataRegs.GPACLEAR.all = (1L<<TXB);}
+#define set_TXC()  {GpioDataRegs.GPBSET.all   = (1L<<(TXC-64));}
+#define clr_TXC()  {GpioDataRegs.GPBCLEAR.all = (1L<<(TXC-64));}
 
-    #define set_TXC()  {GpioDataRegs.GPBSET.all   = (1L<<(TXC-64));}
-    #define clr_TXC()  {GpioDataRegs.GPBCLEAR.all = (1L<<(TXC-64));}
-#elif defined (BOARD_PREVIOUS)
-    #define set_TXA()  {GpioDataRegs.GPBSET.all   = (1L<<(TXA-32));}
-    #define clr_TXA()  {GpioDataRegs.GPBCLEAR.all = (1L<<(TXA-32));}
-
-    #define set_TXB()  {GpioDataRegs.GPASET.all   = (1L<<TXB);}
-    #define clr_TXB()  {GpioDataRegs.GPACLEAR.all = (1L<<TXB);}
-
-    #define set_TXC()  {GpioDataRegs.GPBSET.all   = (1L<<(TXC-32));}
-    #define clr_TXC()  {GpioDataRegs.GPBCLEAR.all = (1L<<(TXC-32));}
-#else
-    #error Necessario definir a placa - Nova (BOARD_NEW) ou Anterior (BOARD_PREVIOUS)
-#endif
 
 // Adicionado (por Almeida)
 #define set_TXD()  {GpioDataRegs.GPBSET.all   |= (1L<<(TXD-32));}
@@ -182,11 +162,6 @@ interrupt void xint2_isr(void);
 */
 interrupt void doNothing(void);
 
-#endif
-#ifdef _MSC_VER
-    void set_TXB();
-    void clr_TXB();
-#endif
 
 /**
 * @brief Fun��o de envio de dados pela softwart UART.
@@ -194,7 +169,7 @@ interrupt void doNothing(void);
 * comunica��o soft-serial.
 * @param b Dado a ser enviado
 */
-void tx_byte_soft(uint8_t * b);
+void tx_byte_soft(uint8_t b);
 /**
 * @brief Fun��o de envio de dados pela SCI-A.
 * @details Esta fun��o envia o dado passado como parametro utilizando a interface de
@@ -208,7 +183,7 @@ void tx_A_byte(uint8_t b);
 * comunica��o serial A.
 * @return Dado recebido pela interface de comunica��o
 */
-void rx_byte_stm_soft(void);
+void rx_byte_soft(void);
 
 uint8_t rx_A_byte();
 
@@ -402,7 +377,9 @@ void serial_rx_to_stm_Init(void);
 
 void serial_tx_to_stm_Init(void);
 
-void serial_tx_to_fpga_Init(void)
+void serial_tx_to_fpga_Init(void);
+
+void serial_rx_to_fpga_Init(void);
 
 /**
 * @brief Fun��o para inicializar a SCI-A.
@@ -543,7 +520,7 @@ void setB230(uint16_t index, uint16_t value);
 */
 void setC230(uint16_t index, uint16_t value);
 
-void phasors_int_to_float(CiseiRxChannel * rx_Fibra1, tms320_board_data_t * board_data);
+void phasors_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data);
 
 void phasors_ret_to_polar(tms320_board_data_t * board_data);
 
@@ -556,5 +533,4 @@ void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board
 void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_uart_frame);
 
 extern uint16_t acquisition_counter;
-
 #endif

@@ -50,6 +50,13 @@ void init_tx_serial(CiseiTxChannel* tx, tpTxByte pTxByteFunc, boolean dummy);
 \see teSerialFrameType.
 */
 uint8_t start_tx_frame(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPayload, uint32_t nBytes);
+/**
+* Fun��o que inicializa a estrutura para a comunica��o serial de transmiss�o.
+* @param tx Ponteiro para uma estrutura CiseiTxChannel com o estado da transmiss�o serial.
+* @param pTxByteFunc Ponteiro da fun��o para transmiss�o de dados.
+* @param dummy Sinalizador que indica a necessidade de ficar transmitindo o caracter 0xFF quando n�o houver frame a ser transmitindo.
+*/
+void init_tx_serial_software(CiseiTxChannel* tx, tpTxByte pTxByteFunc, boolean dummy);
 
 /**
 * Fun��o evocada ao concluir a transmiss�o de dados pela porta serial.

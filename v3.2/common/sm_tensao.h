@@ -1,6 +1,7 @@
 #ifndef _SM_TENSAO_
 #define _SM_TENSAO_
 
+#include <string.h>
 #include "sm.h"
 #include "datatypes.h"
 #include "sm_rx_serial_api.h"
@@ -49,19 +50,14 @@ STATE(SM_TENSAO_CFG);
  */
 STATE(SM_TENSAO_WAIT);
 
+
+STATE(SM_CORRENTE_TEMPERATURA);
+
 /**
  * @brief Estado de convers�o.
  * @details Neste estado a SM espera o final das convers�es.
  */
 STATE(SM_TENSAO_CONV);
-
-/**
- * @brief Estado para o calculo dos fasores.
- * @details Nesse estado s�o recuperados os pontos da mem�ria RAM e s�o
- * calculados os fasores para as seis entradas.
- * @see t_voltage_phasor_frame
- */
-STATE(SM_TENSAO_CALC_FAS);
 
 /**
  * @brief Estado de transmiss�o.
@@ -70,20 +66,6 @@ STATE(SM_TENSAO_CALC_FAS);
  * @see t_voltage_data_frame, t_voltage_phasor_frame
  */
 STATE(SM_TENSAO_TX);
-
-/**
- * @brief Estado para finaliza��o da transmiss�o.
- * @details Quando nesse estado a SM fica esperando a finaliza��o da transmiss�o
- * dos dados para o PC.
- */
-STATE(SM_TENSAO_WAIT_TX);
-
-/**
- * @brief Estado de transmiss�o do sinalizador de final de convers�o.
- * @details Neste estado � enviado um pacote informando o PC que as convers�es
- * e calculo dos fasores foram finalizados, ficando disponiveis para requisi��o.
- */
-STATE(SEND_CONV_END);
 
 /**
  * @brief Estado de transmiss�o do pocte de sincronismo.
@@ -110,6 +92,13 @@ STATE(SM_TENSAO_SYNC);
  * mais distantes recebam o pulso ao mesmo tempo.
  */
 STATE(SM_TENSAO_DELAY);
+
+/**
+ * @brief Estado de requisi��o de dados.
+ * @details Neste estado � enviado pelo canal de comunica��o optica 1
+ * o pacote requisitando os dados de corrente e aguarda o recebimento.
+ */
+STATE(SM_TENSAO_REQ_I0);
 
 /**
  * @brief Estado de requisi��o de dados.
@@ -145,7 +134,6 @@ STATE(SM_TENSAO_REQ_I4);
  * o pacote requisitando os dados de corrente e aguarda o recebimento.
  */
 STATE(RET_TO_POL_CONVERT);
-
 
 /**
  * @brief Estado de transmiss�o.

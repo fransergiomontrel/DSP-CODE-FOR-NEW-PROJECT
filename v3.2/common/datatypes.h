@@ -26,6 +26,7 @@ typedef unsigned char boolean;
 #define TMS320_CHANNEL_COUNT          6U
 #define TMS320_BOARD_COUNT            5U
 
+
 typedef union
 {
     float retangular_float;
@@ -38,14 +39,15 @@ typedef union
     uint32_t ads1118_int;
 }uint16_to_float_t;
 
-typedef struct __attribute__((__packed__))
+typedef struct 
 {
     uint8_t command;
     uint8_t number_ieds;
     uint8_t frequency;
 }tms320_sync_frame_t;
 
-typedef struct __attribute__((__packed__))
+//#pragma PACKED
+typedef struct 
 {
     float channel1[TMS320_CHANNEL_FLOAT_COUNT];
     float channel2[TMS320_CHANNEL_FLOAT_COUNT];
@@ -57,17 +59,23 @@ typedef struct __attribute__((__packed__))
     int8_t alarm;
     int8_t status;
 } tms320_board_data_t;
+//#pragma UNPACKED
 
-typedef struct __attribute__((__packed__))
+//#pragma PACKED
+typedef struct 
 {
     tms320_board_data_t boards[TMS320_BOARD_COUNT];
 } tms320_data_t;
+//#pragma UNPACKED
 
-typedef struct __attribute__((__packed__))
+
+//#pragma PACKED
+typedef struct
 {
     tms320_data_t payload;
     uint16_t crc;
 } tms320_uart_frame_t;
+//#pragma UNPACKED
 
 //! Pacote das estatisticas do sincronismo entre interfaces.
 typedef struct {
@@ -96,23 +104,6 @@ typedef struct {
     float S420_2;
 } t_temp_val;
 
-
-//! Pacote de dados brutos.
-typedef struct {
-//    uint16_t A138[RESULTS_BUFFER_SIZE]; ///< Valores lidos na Fase A do Secund�rio.
-//    uint16_t B138[RESULTS_BUFFER_SIZE]; ///< Valores lidos na Fase B do Secund�rio.
-//    uint16_t C138[RESULTS_BUFFER_SIZE]; ///< Valores lidos na Fase C do Secund�rio.
-//    uint16_t A230[RESULTS_BUFFER_SIZE]; ///< Valores lidos na Fase A do Prim�rio.
-//    uint16_t B230[RESULTS_BUFFER_SIZE]; ///< Valores lidos na Fase B do Prim�rio.
-//    uint16_t C230[RESULTS_BUFFER_SIZE]; ///< Valores lidos na Fase C do Prim�rio.
-
-    uint16_t A138[1]; ///< Valores lidos na Fase A do Secund�rio.
-    uint16_t B138[1]; ///< Valores lidos na Fase B do Secund�rio.
-    uint16_t C138[1]; ///< Valores lidos na Fase C do Secund�rio.
-    uint16_t A230[1]; ///< Valores lidos na Fase A do Prim�rio.
-    uint16_t B230[1]; ///< Valores lidos na Fase B do Prim�rio.
-    uint16_t C230[1]; ///< Valores lidos na Fase C do Prim�rio.
-}t_adc_results;
 
 //! Pacote de transmiss�o dos fasores de tens�o.
 /*! Nesse pacote s�o enviados os fasores calculados, al�m de informa��es adicionais do horario de recebimento do pedido pelo PC,

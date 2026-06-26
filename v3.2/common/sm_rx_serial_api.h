@@ -18,7 +18,7 @@
  * @brief Informa��es sobre o frame sendo recebido
  * @details Esta estrutura armazena os dados de um frame sendo recebido pela porta de comunica��o serial.
  */
-typedef struct {
+typedef struct CiseiRxChannel{
     uint8_t byte_received;              ///< Byte que acaba de ser recebido pela porta serial.
     teSerialFrameType rx_frame_type;    ///< Tipo do frame recebido pela comunica��o serial. \see teSerialFrameType.
     uint8_t* pBuffer;                   ///< Ponteiro do buffer de recep��o dos dados.

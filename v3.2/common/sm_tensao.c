@@ -29,22 +29,16 @@ char ordered_list_Tname [4] = {IED_1, IED_2, IED_3, IED_4};
 tms320_sync_frame_t syncPayload;
 
 tms320_board_data_t board_data_0 = {0};
-
 tms320_board_data_t board_data_1 = {0};
-
 tms320_board_data_t board_data_2 = {0};
-
 tms320_board_data_t board_data_3 = {0};
-
 tms320_board_data_t board_data_4 = {0};
 
 tms320_data_t tms320_data;
-
 tms320_uart_frame_t tms320_uart_frame;
 
 extern volatile uint32_t delay_T1, delay_T2, delay_T3, delay_T4;
 extern volatile uint16_t timer_end;
-extern volatile uint8_t bufferFull;
 
 extern uint32_t delay_v_T1[syncMax];
 extern uint32_t delay_v_T2[syncMax];
@@ -96,6 +90,7 @@ STATE(SM_TENSAO_CFG){
     init_rx_serial(&rx_Fibra4, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
 
     serial_tx_to_fpga_Init();
+    
     tx_byte_soft(0x01);
 
     tx_D_byte(0x01);
@@ -106,12 +101,16 @@ STATE(SM_TENSAO_CFG){
     activateUART_Ints();
     //Did by FPGA itself
     //CPLD_CFG_AD();
-    serial_rx_to_stm_Init();
-    rx_byte_stm_soft();
+
     NEXT_STATE(SM_TENSAO_WAIT);
 }
 
 STATE(SM_TENSAO_WAIT){
+    if(JUST_ARRIVED)
+    {
+        serial_rx_to_stm_Init();
+        rx_byte_soft();
+    }
     if(rx_frameReceived(&rx_USB, &RX_USB_Bytes)){
 
         if(rx_getFrameType(&rx_USB) == SYNC_FRAME){
@@ -120,9 +119,6 @@ STATE(SM_TENSAO_WAIT){
             number_IEDs = syncPayload.number_ieds;
             NEXT_STATE(SM_TENSAO_DELAY);
 
-        }else if(rx_getFrameType(&rx_USB) == DATA_REQUEST){
-             memcpy(&syncPayload, rx_USB.pBuffer, sizeof(tms320_sync_frame_t));
-             NEXT_STATE(SM_TENSAO_TX);
         }
 
         rx_free_frame(&rx_USB);
@@ -448,11 +444,11 @@ STATE(SM_TENSAO_TX_SYNC){
     if(IS_FINISHED){
         //Configure pins
         GpioDataRegs.GPASET.bit.GPIO28 = 1; // TX.0
-        set_TXA();
-        set_TXD();
-        set_TXC();
-        set_TXB();
-
+        GpioDataRegs.GPCSET.bit.GPIO84 = 1; // TX.A
+        GpioDataRegs.GPCSET.bit.GPIO86 = 1; // TX.B
+        GpioDataRegs.GPCSET.bit.GPIO89 = 1; // TX.C
+        GpioDataRegs.GPCSET.bit.GPIO93 = 1; // TX.D
+        
         configureSCI_sync();
         NEXT_STATE(SM_TENSAO_SYNC);
     }
@@ -532,7 +528,6 @@ STATE(SM_TENSAO_SYNC){
 
                     ordered_list_T[j] = temp;
                     ordered_list_Tname[j] = temp_name;
-
                 }
             }
         }
@@ -544,7 +539,7 @@ STATE(SM_TENSAO_SYNC){
         //Check which among 3 slaver IED has first bigger time propagation
         switch (ordered_list_Tname[2])
         {
-            case '1':
+            case IED_1:
 
                 CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
                 CpuTimer2Regs.TCR.bit.TRB = 1;
@@ -554,12 +549,12 @@ STATE(SM_TENSAO_SYNC){
                 //Check which among 2 slaver IED has first bigger time propagation
                 switch (ordered_list_Tname[1])
                 {
-                    case '2':
+                    case IED_2:
                         GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                         while(CpuTimer2Regs.TIM.all >= i1);
                         GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                     break;
-                    case '3':
+                    case IED_3:
                         GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                         while(CpuTimer2Regs.TIM.all >= i1);
                         GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
@@ -568,7 +563,7 @@ STATE(SM_TENSAO_SYNC){
                 
                 break;
 
-            case '2':
+            case IED_2:
                 
                 CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
                 CpuTimer2Regs.TCR.bit.TRB = 1;
@@ -578,12 +573,12 @@ STATE(SM_TENSAO_SYNC){
                 //Check which among 2 slaver IED has first bigger time propagation
                 switch (ordered_list_Tname[1])
                 {
-                    case '1':
+                    case IED_1:
                         GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                         while(CpuTimer2Regs.TIM.all >= i1);
                         GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                     break;
-                    case '3':
+                    case IED_3:
                         GpioDataRegs.GPCSET.bit.GPIO86 = 1; //TX.B
                         while(CpuTimer2Regs.TIM.all >= i1);
                         GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
@@ -592,7 +587,7 @@ STATE(SM_TENSAO_SYNC){
 
             break;
 
-            case '3':
+            case IED_3:
                 
                 CpuTimer2Regs.PRD.all = contador; //CPU Timer Period Register
                 CpuTimer2Regs.TCR.bit.TRB = 1;
@@ -602,12 +597,12 @@ STATE(SM_TENSAO_SYNC){
                 //Check which among 2 slaver IED has first bigger time propagation
                 switch (ordered_list_Tname[1])
                 {
-                    case '1':
+                    case IED_1:
                         GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
                         while(CpuTimer2Regs.TIM.all >= i1);
                         GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                     break;
-                    case '2':
+                    case IED_2:
                         GpioDataRegs.GPCSET.bit.GPIO89 = 1; //TX.C
                         while(CpuTimer2Regs.TIM.all >= i1);
                         GpioDataRegs.GPCSET.bit.GPIO93 = 1; //TX.D
@@ -939,49 +934,56 @@ STATE(SM_TENSAO_SYNC){
 
 STATE(SM_TENSAO_CONV){
     if(JUST_ARRIVED){
-#ifdef SINGLE
-        startCapture();
-        GPIO_WritePin(CONVST, 1);
-        acquisition_counter++;
-#endif
         START(35000);
     }
     if(IS_FINISHED){
         //GPIO_WritePin(CONVST, 0);
         GpioDataRegs.GPACLEAR.bit.GPIO28 = 1; //TX.0
         CPLD_WE(0);
-        NEXT_STATE(SM_TENSAO_CALC_FAS);
+        data_frame.pVoltage.acquisition_counter = acquisition_counter;
+        NEXT_STATE(SM_TENSAO_REQ_I0);
     }
 }
 
-STATE(SM_TENSAO_TX){
-        
-    data_frame.pVoltage.acquisition_counter = acquisition_counter;
-    
-    //start_tx_frame(&tx_USB, VOLTAGE_PHASOR, (uint8_t*)&data_frame.pVoltage, 2*sizeof(data_frame.pVoltage)); // Montar pacote de transferencia
-        
-    NEXT_STATE(SM_TENSAO_REQ_I1);
-
-}
-/*
-STATE(SM_TENSAO_WAIT_TX){
-
-    if(JUST_ARRIVED)
+STATE(SM_TENSAO_REQ_I0){  
+    //Wait to recieve data via fiber
+    if(JUST_ARRIVED){
+        serial_tx_to_fpga_Init();
+        start_tx_frame(&tx_Fibra0, DATA_REQUEST, 0x0, 0x0);
+        while(!tx_end(&tx_Fibra0));
+        serial_rx_to_fpga_Init();
+        rx_byte_soft();
         START(9000000);
-    if(tx_end(&tx_USB) || IS_FINISHED){
+    }if(IS_FINISHED){
 
-        CPLD_WE(1);
-        CPLD_Mode(MODE_RW);
-        CPLD_Read_Write_SPI(0xFF);CPLD_Read_Write_SPI(0xFF);
-        CPLD_Read_Write_SPI(0xFF);CPLD_Read_Write_SPI(0xFF);
-        CPLD_Read_Write_SPI(0xFF);CPLD_Read_Write_SPI(0xFF);
-        CPLD_WE(0);
-        NEXT_STATE(SM_TENSAO_WAIT);
+        if(number_IEDs != NO_FIBER){
+            NEXT_STATE(SM_TENSAO_REQ_I1);
+        }
+        else{
+            NEXT_STATE(RET_TO_POL_CONVERT);
+        }
 
     }
+    if(rx_frameReceived(&rx_Fibra0, &RX_Bytes)){
 
+        if(rx_getFrameType(&rx_Fibra0) == CURRENT_PHASOR_X){
+            GPIO_WritePin(54, 1);
+            if(number_IEDs != NO_FIBER){
+                NEXT_STATE(SM_TENSAO_REQ_I1);
+            }
+            else{
+                NEXT_STATE(RET_TO_POL_CONVERT);    
+            }
+        }else{
+            if(number_IEDs != NO_FIBER){
+                NEXT_STATE(SM_TENSAO_REQ_I1);
+            }
+            else{
+                NEXT_STATE(RET_TO_POL_CONVERT);    
+            }
+        }        
+    }   
 }
-*/
 
 STATE(SM_TENSAO_REQ_I1){
     //Wait to recieve data via fiber
@@ -992,7 +994,6 @@ STATE(SM_TENSAO_REQ_I1){
 
     }if(IS_FINISHED){
 
-        //rx_free_frame(&rx_Fibra1);
         if(number_IEDs != ONE_FIBER){
             NEXT_STATE(SM_TENSAO_REQ_I2);
         }
@@ -1032,7 +1033,6 @@ STATE(SM_TENSAO_REQ_I2){
         
     }if(IS_FINISHED){
 
-        //rx_free_frame(&rx_Fibra2);
         if(number_IEDs != TWO_FIBERS){
             NEXT_STATE(SM_TENSAO_REQ_I3);
         }
@@ -1068,7 +1068,6 @@ STATE(SM_TENSAO_REQ_I3){
         
     }
     if(IS_FINISHED){
-        //rx_free_frame(&rx_Fibra3);
         if(number_IEDs != THREE_FIBERS){
             NEXT_STATE(SM_TENSAO_REQ_I4);
         }
@@ -1104,7 +1103,6 @@ STATE(SM_TENSAO_REQ_I4){
         
     }if(IS_FINISHED){
 
-         //rx_free_frame(&rx_Fibra4);
          NEXT_STATE(RET_TO_POL_CONVERT);
 
     }
@@ -1123,6 +1121,9 @@ STATE(SM_TENSAO_REQ_I4){
 
 STATE(RET_TO_POL_CONVERT){
     
+    phasors_int_to_float(&rx_Fibra0,&board_data_0);
+    phasors_ret_to_polar(&board_data_0);
+
     if(number_IEDs == ONE_FIBER)
     {
         phasors_int_to_float(&rx_Fibra1,&board_data_1);
@@ -1166,6 +1167,8 @@ STATE(RET_TO_POL_CONVERT){
 
 STATE(SM_CORRENTE_TEMPERATURA){
     
+    ads1118_int_to_float(&rx_Fibra0,&board_data_0);
+
     if(number_IEDs == ONE_FIBER)
     {
         ads1118_int_to_float(&rx_Fibra1,&board_data_1);
@@ -1204,40 +1207,27 @@ STATE(SM_SEND_DATA){
         //Send data to STM32 through software serial
         //data_frame.pCurrent.acquisition_counter = acquisition_counter;
         tms320_frame_crc(&tms320_data, &tms320_uart_frame);
-        start_tx_frame_software(&tx_USB, TMS320_DATA_CRC, (uint8_t*)&tms320_uart_frame, 2*sizeof(tms320_uart_frame));//Montar pacote de transferencia
-        
+        serial_tx_to_stm_Init();
+        start_tx_frame_software(&tx_USB, TMS320_DATA_CRC, (uint8_t*)&tms320_uart_frame, sizeof(tms320_uart_frame));//Montar pacote de transferencia
+
     }
     if(tx_end(&tx_USB)){
         DELAY_US(10000);
+
+        memset(&board_data_0, 0, sizeof(board_data_0));
+        memset(&board_data_1, 0, sizeof(board_data_1));
+        memset(&board_data_2, 0, sizeof(board_data_2));
+        memset(&board_data_3, 0, sizeof(board_data_3));
+        memset(&board_data_4, 0, sizeof(board_data_4));
+
+        rx_free_frame(&rx_Fibra0);
+        rx_free_frame(&rx_Fibra1);
+        rx_free_frame(&rx_Fibra2);
+        rx_free_frame(&rx_Fibra3);
+        rx_free_frame(&rx_Fibra4);
+
         NEXT_STATE(SM_TENSAO_WAIT);
     }
 }
 
 
-uint16_t testeCRC = 0;
-
-//--------------------------------------------------------------------------------------
-// Codigo de Teste: INICIO
-//--------------------------------------------------------------------------------------
-#define ADC_DATA_SAMPLES    (RESULTS_BUFFER_SIZE)
-static uint16_t ad_data [ ADC_DATA_SAMPLES ];
-//--------------------------------------------------------------------------------------
-// Codigo de Teste: FIM
-//--------------------------------------------------------------------------------------
-
-
-STATE(SM_TENSAO_CALC_FAS){
-   
-}
-
-STATE(SEND_CONV_END){
-    if(JUST_ARRIVED){
-        start_tx_frame(&tx_USB, END_CONVERSION, (uint8_t*)&syncPayload, 2*sizeof(tms320_sync_frame_t)); // Montar pacote de transferencia
-        //start_tx_frame(&tx_USB, END_CONVERSION,  0x0, 0x0); // Montar pacote de transferencia
-        START(10000);
-    }
-    if(tx_end(&tx_USB) || IS_FINISHED){
-        clr_DEBUG1();
-        NEXT_STATE(SM_TENSAO_WAIT);
-    }
-}

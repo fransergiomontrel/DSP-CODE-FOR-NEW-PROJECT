@@ -26,7 +26,6 @@ void init_tx_serial(CiseiTxChannel* tx, tpTxByte pTxByteFunc, boolean dummy){
 }
 
 void init_tx_serial_software(CiseiTxChannel* tx, tpTxByte pTxByteFunc, boolean dummy){
-    //TXInts(0);
 
     tx->tx_FF = dummy;
     tx->pTxByte = pTxByteFunc;
@@ -35,8 +34,6 @@ void init_tx_serial_software(CiseiTxChannel* tx, tpTxByte pTxByteFunc, boolean d
 	INIT(tx->sm_tx_serial_api, SM_TX_WAITING, tx);
 	if(tx->tx_FF)
 	    tx->pTxByte(0xFF);
-
-	//TXInts(1);
 
 }
 
@@ -68,7 +65,6 @@ uint8_t start_tx_frame(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPay
 }
 
 uint8_t start_tx_frame_software(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPayload, uint32_t nBytes) {
-    //TXInts(0);
 
 	if (!COMPARE(tx->sm_tx_serial_api, SM_TX_WAITING)){
 	    //TXInts(1);
@@ -89,7 +85,6 @@ uint8_t start_tx_frame_software(CiseiTxChannel* tx, teSerialFrameType type, uint
         tx->pTxByte(SOH);
     }
 
-    //TXInts(1);
 	return 1;
 }
 
