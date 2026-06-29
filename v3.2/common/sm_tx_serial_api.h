@@ -74,11 +74,6 @@ uint8_t start_tx_frame_software(CiseiTxChannel* tx, teSerialFrameType type, uint
 
 STATE(SM_START);                ///< Dispara a comunica��o serial (inicia a transmiss�o do frame).
 STATE(SM_TX_WAITING);           ///< Estado aguardando o disparo da transmiss�o serial
-STATE(SM_TX_DATA);              ///< Transmitindo os dados do payload na porta serial
-STATE(SM_TX_BYTE_STUFFING);     ///< Um byte ESC foi transmitido pela porta serial sinalizando bytestuffing.
-STATE(SM_TX_PAYLOAD_SENDED);    ///< Estado sinalizando que o payload foi transmitido (LEGADO: n�o sendo usado).
-STATE(SM_TX_CHKSUM_LSB);        ///< Estado sinalizando que o byte LSB de CHKSUM est� sendo transmitido.
-STATE(SM_TX_CHKSUM_MSB);        ///< Estado sinalizando que o byte MSB de CHKSUM est� sendo transmitido.
 STATE(SM_TX_FINALIZE);          ///< Estado sinalizando o fim da transmiss�o serial.
 
 #endif

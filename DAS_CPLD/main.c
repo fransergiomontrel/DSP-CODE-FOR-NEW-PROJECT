@@ -15,7 +15,6 @@
 #include "common/sm_tx_serial_api.h"
 #include "common/sm_tensao.h"
 
-
 #include "F28377S/pins.h"
 #include "F28377S/sci_io.h"
 

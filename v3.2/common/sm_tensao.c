@@ -7,16 +7,22 @@
 
 StateMachine sm_tensao;
 
+
 struct{
 
     t_voltage_phasor_frame pVoltage;   
-    t_current_phasor_frame pCurrent;
     
 } data_frame;
 
+
 chrono chrono1;
 uint32_t RX_Bytes, RX_USB_Bytes;
-uint8_t buffer_USB[256], buffer[256];
+uint8_t buffer_USB[256];
+uint8_t buffer0[60];
+uint8_t buffer1[60];
+uint8_t buffer2[60];
+uint8_t buffer3[60];
+uint8_t buffer4[60];
 int64_t timeBuffer;
 uint32_t T1, T2, T3, T4;
 uint16_t syncTimes = 0, nominal_frequency = 0, CRC_retry = 0, number_IEDs = 0;
@@ -45,8 +51,9 @@ extern uint32_t delay_v_T2[syncMax];
 extern uint32_t delay_v_T3[syncMax];
 extern uint32_t delay_v_T4[syncMax];
 
-extern CiseiRxChannel rx_USB;
+extern CiseiRxChannel_stm32 rx_USB;
 extern CiseiTxChannel tx_USB;
+
 extern CiseiRxChannel rx_Fibra0;
 extern CiseiTxChannel tx_Fibra0;
 extern CiseiRxChannel rx_Fibra1;
@@ -74,7 +81,7 @@ STATE(SM_TENSAO_TEST){
 }
 
 STATE(SM_TENSAO_CFG){
-
+    
     init_tx_serial_software(&tx_USB, tx_byte_soft, 0);
     init_tx_serial_software(&tx_Fibra0, tx_byte_soft, 0);
     init_tx_serial(&tx_Fibra1, tx_D_byte, 0);
@@ -82,15 +89,15 @@ STATE(SM_TENSAO_CFG){
     init_tx_serial(&tx_Fibra2, tx_C_byte, 0);
     init_tx_serial(&tx_Fibra3, tx_B_byte, 0);
 
-    init_rx_serial(&rx_USB, buffer_USB, sizeof(buffer_USB));
-    init_rx_serial(&rx_Fibra0, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
-    init_rx_serial(&rx_Fibra1, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
-    init_rx_serial(&rx_Fibra2, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
-    init_rx_serial(&rx_Fibra3, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
-    init_rx_serial(&rx_Fibra4, (uint8_t*)&data_frame.pCurrent, 2*sizeof(data_frame.pCurrent));
+    //init_rx_serial(&rx_USB, buffer_USB, sizeof(buffer_USB));
+    init_rx_serial_stm32(&rx_USB, buffer_USB);
+    init_rx_serial(&rx_Fibra0, buffer0, sizeof(buffer0));
+    init_rx_serial(&rx_Fibra1, buffer1, sizeof(buffer1));
+    init_rx_serial(&rx_Fibra2, buffer2, sizeof(buffer2));
+    init_rx_serial(&rx_Fibra3, buffer3, sizeof(buffer3));
+    init_rx_serial(&rx_Fibra4, buffer4, sizeof(buffer4));
 
     serial_tx_to_fpga_Init();
-    
     tx_byte_soft(0x01);
 
     tx_D_byte(0x01);
@@ -99,8 +106,6 @@ STATE(SM_TENSAO_CFG){
     tx_B_byte(0x01);
 
     activateUART_Ints();
-    //Did by FPGA itself
-    //CPLD_CFG_AD();
 
     NEXT_STATE(SM_TENSAO_WAIT);
 }
@@ -117,10 +122,18 @@ STATE(SM_TENSAO_WAIT){
             memcpy(&syncPayload, rx_USB.pBuffer, sizeof(tms320_sync_frame_t));
             nominal_frequency = syncPayload.frequency;
             number_IEDs = syncPayload.number_ieds;
+            if(number_IEDs == FOUR_FIBERS)
+            {
+                XintRegs.XINT1CR.bit.ENABLE = 0;       // desabilita XINT1 temporariamente
+                PieCtrlRegs.PIEIER1.bit.INTx4 = 0;     // limpa PIE channel
+                // Seleciona GPIO83 como fonte da XINT1
+                InputXbarRegs.INPUT1SELECT = RXA;   // exemplo: conecta GPIO85 ao XINT1
+                XintRegs.XINT1CR.bit.ENABLE = 1;       // desabilita XINT1 temporariamente
+                PieCtrlRegs.PIEIER1.bit.INTx4 = 1;     // limpa PIE channel
+                XintRegs.XINT1CR.bit.POLARITY = 0x1;  // XINT1 - Polarity Conf.: 0x0, 0x2 -> Neg. Edge / 0x1 -> Pos. Edge / 0x3 -> Both
+            }
             NEXT_STATE(SM_TENSAO_DELAY);
-
         }
-
         rx_free_frame(&rx_USB);
     }
 }
@@ -430,13 +443,6 @@ STATE(SM_TENSAO_TX_SYNC){
                 start_tx_frame(&tx_Fibra4, SYNC_FRAME_50HZ, 0x0, 0x0);
             }
         }
-
-        data_frame.pVoltage.A138_A =  -1;
-        data_frame.pVoltage.B138_A =  -1;
-        data_frame.pVoltage.C138_A =  -1;
-        data_frame.pVoltage.A230_A =  -1;
-        data_frame.pVoltage.B230_A =  -1;
-        data_frame.pVoltage.C230_A =  -1;
 
         //wait
         START(1000);
@@ -940,7 +946,7 @@ STATE(SM_TENSAO_CONV){
         //GPIO_WritePin(CONVST, 0);
         GpioDataRegs.GPACLEAR.bit.GPIO28 = 1; //TX.0
         CPLD_WE(0);
-        data_frame.pVoltage.acquisition_counter = acquisition_counter;
+        //data_frame.pVoltage.acquisition_counter = acquisition_counter;
         NEXT_STATE(SM_TENSAO_REQ_I0);
     }
 }

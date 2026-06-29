@@ -31,6 +31,21 @@ typedef struct CiseiRxChannel{
     boolean lock;                       ///< Sinalizador que bloqueia a altera��o desta estrutura. Se estiver travado, ignora o dado rec�m recebido.
 }CiseiRxChannel;
 
+typedef struct CiseiRxChannel_stm32{
+    uint8_t  byte_received;              ///< Byte que acaba de ser recebido pela porta serial.
+    uint16_t preamble;    
+    uint8_t* pBuffer;                   ///< Ponteiro do buffer de recep��o dos dados.
+    uint32_t bytesReceived;             ///< N�mero de bytes v�lidos recebidos do frame corrente.
+    uint8_t  command;
+    uint8_t  frameReceived;                          
+    uint16_t  length;             
+    uint16_t chksum;                    ///< Vari�vel tempor�ria que � utilizada para o c�lculo do CHKSUM. A cada byte recebido esta vari�vel � atualizada.
+    uint16_t chksumReceived;            ///< CHKSUM do frame recebido.
+    StateMachine sm_rx_serial_api;      ///< M�quina de estados utilizada para a recep��o dos dados. \see StateMachine
+    boolean lock;                       ///< Sinalizador que bloqueia a altera��o desta estrutura. Se estiver travado, ignora o dado rec�m recebido.
+}CiseiRxChannel_stm32;
+
+
 /**
 * Fun��o evocada a cada interrup��o de recep��o de dados pela porta serial.
 * @details Cada byte recebido pela porta de comunica��o serial evoca esta fun��o que atualiza toda a estrutura de comunica��o.
@@ -39,6 +54,8 @@ typedef struct CiseiRxChannel{
 */
 void rx_interrupt(CiseiRxChannel* rx, uint8_t b);
 
+void rx_interrupt_stm32(CiseiRxChannel_stm32* rx, uint8_t b);
+
 /**
 * Fun��o que inicializa a estrutura para a comunica��o serial.
 * @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recep��o serial.
@@ -46,6 +63,8 @@ void rx_interrupt(CiseiRxChannel* rx, uint8_t b);
 * @param nBytes N�mero total de bytes do buffer de recep��o. \see pBuffer
 */
 void init_rx_serial(CiseiRxChannel* rx, uint8_t* pBuffer, uint32_t nBytes);
+
+void init_rx_serial_stm32(CiseiRxChannel_stm32* rx, uint8_t* pBuffer);
 
 /**
 * Fun��o que libera a recep��o de dados. \see frameReceived
@@ -79,10 +98,10 @@ teSerialFrameType rx_getFrameType(CiseiRxChannel* rx);
 STATE(SM_RX_WAITING);
 STATE(SM_RX_RECEIVE_TYPE);
 STATE(SM_RX_DATA);
-STATE(SM_RX_BYTE_STUFFING);
-STATE(SM_RX_CHECKSUM_LSB);
-STATE(SM_RX_CHECKSUM_MSB);
-STATE(SM_RX_CHKSUM_ERROR);
-STATE(SM_RX_FULL_BUFFER);
+
+STATE(SM_RX_WAITING_STM32);
+STATE(SM_RX_RECEIVE_TYPE_STM32);
+STATE(SM_RX_DATA_STM32);
+
 
 #endif

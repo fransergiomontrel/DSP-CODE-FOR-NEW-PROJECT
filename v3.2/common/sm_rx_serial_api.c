@@ -11,6 +11,19 @@ void rx_reset_buffer(CiseiRxChannel* rx) {
 	INIT(rx->sm_rx_serial_api, SM_RX_WAITING, rx);
 }
 
+void rx_reset_buffer_stm32(CiseiRxChannel_stm32* rx) {
+	rx->bytesReceived = 0;
+	rx->chksum = 0;
+	INIT(rx->sm_rx_serial_api, SM_RX_WAITING_STM32, rx);
+}
+
+void rx_reset_buffer_stm32(CiseiRxChannel_stm32* rx) {
+	rx->bytesReceived = 0;
+	rx->chksum = 0;
+	INIT(rx->sm_rx_serial_api, SM_RX_WAITING_STM32, rx);
+}
+
+
 void rx_interrupt(CiseiRxChannel* rx, uint8_t b) {
 //    togglePin(DEBUG1);
 	if (rx->lock)   // Se estiver travado, ignora o dado
@@ -26,7 +39,27 @@ void rx_interrupt(CiseiRxChannel* rx, uint8_t b) {
 	EXEC(rx->sm_rx_serial_api);
 }
 
+void rx_interrupt_stm32(CiseiRxChannel_stm32* rx, uint8_t b) {
+//    togglePin(DEBUG1);
+	if (rx->lock)   // Se estiver travado, ignora o dado
+        return;
+	if (rx->frameReceived)  // Se a flag indicar que ha um frame recebido, nao permite a recepcao de nada
+		return;
+
+    rx->byte_received = b;
+	// Sempre que receber SOH reseta a recepcao
+	if (rx->byte_received == SOH_STM32)
+		rx_reset_buffer_stm32(rx);
+
+	EXEC(rx->sm_rx_serial_api);
+}
+
+
 void rx_free_frame(CiseiRxChannel* rx) {
+	rx->frameReceived = 0;
+}
+
+void rx_free_frame_stm32(CiseiRxChannel_stm32* rx) {
 	rx->frameReceived = 0;
 }
 
@@ -48,6 +81,15 @@ void init_rx_serial(CiseiRxChannel* rx, uint8_t* pBuffer, uint32_t nBytes) {
 	rx->lock = 0;
 }
 
+void init_rx_serial_stm32(CiseiRxChannel_stm32* rx, uint8_t* pBuffer)
+{
+	rx->lock = 1;
+	rx->pBuffer = pBuffer;
+	rx_free_frame_stm32(rx);
+	rx_reset_buffer_stm32(rx);
+	rx->lock = 0;
+}
+
 #define sm_rx   ((CiseiRxChannel*)SM_PARAM)
 
 STATE(SM_RX_WAITING) {
@@ -61,56 +103,20 @@ STATE(SM_RX_RECEIVE_TYPE) {
 }
 
 STATE(SM_RX_DATA) {
-	if (sm_rx->byte_received == ESC) {
-		NEXT_STATE(SM_RX_BYTE_STUFFING);
-		return;
-	}
 
-	if (sm_rx->byte_received == EOT) {
-		NEXT_STATE(SM_RX_CHECKSUM_LSB);
-		return;
-	}
-
-	if (sm_rx->bytesReceived >= sm_rx->nBytes) {
+	if (sm_rx->bytesReceived == sm_rx->nBytes) {
 		// Buffer encheu...
-		NEXT_STATE(SM_RX_FULL_BUFFER);
+		NEXT_STATE(SM_RX_WAITING);
 		return;
 	}
 
     sm_rx->pBuffer[sm_rx->bytesReceived] = sm_rx->byte_received;
     
-	sm_rx->chksum = sm_rx->chksum + (uint8_t)sm_rx->byte_received;
 	sm_rx->bytesReceived = sm_rx->bytesReceived + 1;
 }
 
-STATE(SM_RX_BYTE_STUFFING) {
-	uint8_t b = sm_rx->byte_received ^ 0xFF;
-  
-    sm_rx->pBuffer[sm_rx->bytesReceived] = b;
-    
-	sm_rx->chksum = sm_rx->chksum + b;
-	sm_rx->bytesReceived = sm_rx->bytesReceived + 1;
-	NEXT_STATE(SM_RX_DATA);
-}
 
-STATE(SM_RX_CHECKSUM_LSB) {
-	sm_rx->chksumReceived = sm_rx->byte_received;
-	NEXT_STATE(SM_RX_CHECKSUM_MSB);
-}
 
-STATE(SM_RX_CHECKSUM_MSB) {
-	sm_rx->chksumReceived = (((uint16_t)sm_rx->byte_received) << 8) | sm_rx->chksumReceived;
-	if (sm_rx->chksumReceived == (sm_rx->chksum | 0x8080)) {
-		sm_rx->frameReceived = 1;
-		NEXT_STATE(SM_RX_WAITING);
-	}
-	else
-		NEXT_STATE(SM_RX_CHKSUM_ERROR);
-}
 
-STATE(SM_RX_CHKSUM_ERROR) {
-}
 
-STATE(SM_RX_FULL_BUFFER) {
-	// O buffer de recepcao ficou cheio. Sai aqui apenas quando receber um SOH
-}
+

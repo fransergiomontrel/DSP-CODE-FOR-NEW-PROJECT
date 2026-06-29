@@ -32,7 +32,7 @@ uint32_t delay_v_T4[syncMax];
 
 volatile uint16_t delayF = 0;
 
-CiseiRxChannel rx_USB;
+CiseiRxChannel_stm32 rx_USB;
 CiseiTxChannel tx_USB;
 
 CiseiRxChannel rx_Fibra0;
@@ -65,23 +65,6 @@ void syncInt_ena(){
     PieCtrlRegs.PIEIER1.bit.INTx4 = 1;
     XintRegs.XINT1CR.bit.ENABLE = 1;
     EINT;
-}
-
-float64 analogEq(Uint16 adcres, Uint16 bits){
-    float64 aux1, aux2, aux3, aux4;
-    if(bits == 16){
-        aux1 = adcres;
-        aux2 = aux1 * 2;
-        aux3 = aux2/65536.0;
-        aux4 = aux3 - 1.0;
-    }else if(bits == 12){
-        aux1 = adcres;
-        aux4 = aux1/4096.0;
-    }
-    else
-        aux4 = -2;
-
-    return(3.3*(aux4));
 }
 
 void syncInt_dis(){
@@ -194,8 +177,6 @@ void RXInts(uint8_t enable){
 
 }
 
-
-
 interrupt void timer1_isr(void){
 //    togglePin(DEBUG1);
 //    CpuTimer1Regs.TCR.bit.TRB = 1;
@@ -203,7 +184,6 @@ interrupt void timer1_isr(void){
     CpuTimer1Regs.TCR.bit.TSS = 1;
     timer_end = 1;
 }
-
 
 void initInts(){
     DINT;
@@ -983,7 +963,7 @@ interrupt void timer2_rx_stm_isr(void){
         XintRegs.XINT1CR.bit.ENABLE = 1;
         //Habilita canal da XINT1 no PIE
         PieCtrlRegs.PIEIER1.bit.INTx4 = 1;
-        rx_interrupt(&rx_USB, b);
+        rx_interrupt_stm32(&rx_USB, b);
     }
     
     ++CpuTimer2.InterruptCount;
@@ -991,6 +971,35 @@ interrupt void timer2_rx_stm_isr(void){
     CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
 }
 
+interrupt void timer2_rx_fpga_isr(void){
+   
+    if(CpuTimer2.InterruptCount == 0)
+    {
+        b |= (((unsigned char)GpioDataRegs.GPADAT.bit.GPIO30) << CpuTimer2.InterruptCount);
+        CpuTimer2Regs.PRD.all = BAUD_TIME_SOFT_SERIAL;
+    }
+    else if((0 < CpuTimer2.InterruptCount) && (CpuTimer2.InterruptCount < 8))
+    {
+        b |= (((unsigned char)GpioDataRegs.GPADAT.bit.GPIO30) << CpuTimer2.InterruptCount);
+    }
+    else if(CpuTimer2.InterruptCount == 8)
+    {
+        rec_parity_bit = GpioDataRegs.GPADAT.bit.GPIO30;
+    
+        CpuTimer2Regs.TCR.bit.TSS = 1;
+        
+        CpuTimer2Regs.PRD.all = ONE_HALF_BIT_TIME;
+        //Habilita XINT1
+        XintRegs.XINT1CR.bit.ENABLE = 1;
+        //Habilita canal da XINT1 no PIE
+        PieCtrlRegs.PIEIER1.bit.INTx4 = 1;
+        rx_interrupt(&rx_USB, b);
+    }
+    
+    ++CpuTimer2.InterruptCount;
+    CpuTimer2Regs.TCR.bit.TIF = 1; // limpa flag
+    CpuTimer2Regs.TCR.bit.TRB = 1;  //CPU Timer Timer reload
+}
 
 void serial_rx_to_stm_Init(void){
     CpuTimer2Regs.PRD.all = ONE_HALF_BIT_TIME;
@@ -1027,7 +1036,7 @@ void serial_rx_to_fpga_Init(void){
     CpuTimer2Regs.TCR.bit.TSS = 1;  //CPU Timer stop status bit
   
     EALLOW;
-    PieVectTable.TIMER2_INT = &timer2_rx_stm_isr;
+    PieVectTable.TIMER2_INT = &timer2_rx_fpga_isr;
     // Vetor da XINT1
     PieVectTable.XINT1_INT = &xint1_isr;
 
@@ -1047,30 +1056,6 @@ void rx_byte_soft(void)
     XintRegs.XINT1CR.bit.ENABLE = 1;   // habilita XINT1
     //Habilita canal da XINT1 no PIE
     PieCtrlRegs.PIEIER1.bit.INTx4 = 1;
-}
-
-//volatile int estado_ant = 0, estado_at = 0, start_save = 0;
-
-void quickSort(uint16_t vet[], int16_t esq, int16_t dir) {
-    int16_t pivo = esq, i, ch, j;
-    for (i = esq + 1; i <= dir; i++) {
-        j = i;
-        if (vet[j] < vet[pivo]) {
-            ch = vet[j];
-            while (j > pivo) {
-                vet[j] = vet[j - 1];
-                j--;
-            }
-            vet[j] = ch;
-            pivo++;
-        }
-    }
-    if (pivo - 1 >= esq) {
-        quickSort(vet, esq, pivo - 1);
-    }
-    if (pivo + 1 <= dir) {
-        quickSort(vet, pivo + 1, dir);
-    }
 }
 
 
@@ -1374,20 +1359,4 @@ void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_
     tms320_uart_frame->crc = CRC_calc; 
 }
 
-float64 tempNTC(float res, uint16_t adc1, uint16_t adc2){
-    const float64 beta = 3450.0;
-    const float64 r0 = 330.0;
-    const float64 t0 = 273.0 + 25.0;
-    const float64 rx = r0 * expl(-beta/t0);
-
-    float64 vcc = analogEq(adc2, 12);
-    float64 R = res;
-
-    float64 v = analogEq(adc1, 12);
-    float64 rt = (vcc*R)/v - R;
-
-    float64 t = beta / logl(rt/rx);
-
-    return (t-273.0);
-}
 

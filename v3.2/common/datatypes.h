@@ -21,10 +21,25 @@ typedef signed char int8_t;
 typedef unsigned char boolean;
 #endif 
 
+#define TMS320_BOARD_COUNT            5U
+#define TMS320_CHANNEL_COUNT          6U
 #define TMS320_CHANNEL_FLOAT_COUNT    2U
 #define TMS320_ANALOG_FLOAT_COUNT     5U
-#define TMS320_CHANNEL_COUNT          6U
-#define TMS320_BOARD_COUNT            5U
+#define TMS320_BOARD_STATUS_SIZE      1U
+#define TMS320_BOARD_ALARM_SIZE       1U
+#define TMS320_CRC_SIZE               2U
+#define TMS320_SAMPLE_REQUEST_SIZE    3U
+#define TMS320_SAMPLE_FASOR_COMMAND   0x0CU
+//#define TMS320_SAMPLE_DISSIPATION     0x0DU
+
+
+#define TMS320_BOARD_PAYLOAD_SIZE     \
+    (((TMS320_CHANNEL_COUNT * TMS320_CHANNEL_FLOAT_COUNT) + \
+      TMS320_ANALOG_FLOAT_COUNT) * \
+     (uint32_t)sizeof(float) + TMS320_BOARD_STATUS_SIZE + \
+     TMS320_BOARD_ALARM_SIZE)
+#define TMS320_PAYLOAD_SIZE           (TMS320_BOARD_COUNT * TMS320_BOARD_PAYLOAD_SIZE)
+#define TMS320_UART_FRAME_SIZE        (TMS320_PAYLOAD_SIZE + TMS320_CRC_SIZE)
 
 
 typedef union
@@ -112,21 +127,8 @@ typedef struct {
  */
 typedef struct {
 
-    tms320_sync_frame_t time;      ///< Vari�vel para armazenar o pacote de dados do sincronismo.
+    //tms320_sync_frame_t time;      ///< Vari�vel para armazenar o pacote de dados do sincronismo.
     t_sync_data sync_data;  ///< Vari�vel para armazenar o pacote de estatisticas do sincronismo.
-    float A138_A; ///< Amplitude calculada da Fase A do Secund�rio.
-    float A138_P; ///< Fase calculada da Fase A do Secund�rio.
-    float B138_A; ///< Amplitude calculada da Fase B do Secund�rio.
-    float B138_P; ///< Fase calculada da Fase B do Secund�rio.
-    float C138_A; ///< Amplitude calculada da Fase C do Secund�rio.
-    float C138_P; ///< Fase calculada da Fase C do Secund�rio.
-    float A230_A; ///< Amplitude calculada da Fase A do Prim�rio.
-    float A230_P; ///< Fase calculada da Fase A do Prim�rio.
-    float B230_A; ///< Amplitude calculada da Fase B do Prim�rio.
-    float B230_P; ///< Fase calculada da Fase B do Prim�rio.
-    float C230_A; ///< Amplitude calculada da Fase C do Prim�rio.
-    float C230_P; ///< Fase calculada da Fase C do Prim�rio.
-    uint16_t acquisition_counter; ///< Contador de aquisi��es para garantir a sincronia entre interfaces.
 
 } t_voltage_phasor_frame;
 
@@ -134,36 +136,6 @@ typedef struct {
 /*!
  *  \sa tms320_sync_frame_t
  */
-typedef struct {
-    
-    t_temp_val temperatura; ///< Vari�vel para armazenar os valores lidos dos sensores de temperatura.
-    float A138_A;           ///< Amplitude calculada da Fase A do Secund�rio.
-    float A138_P;           ///< Fase calculada da Fase A do Secund�rio.
-    float B138_A;           ///< Amplitude calculada da Fase B do Secund�rio.
-    float B138_P;           ///< Fase calculada da Fase B do Secund�rio.
-    float C138_A;           ///< Amplitude calculada da Fase C do Secund�rio.
-    float C138_P;           ///< Fase calculada da Fase C do Secund�rio.
-    float A230_A;           ///< Amplitude calculada da Fase A do Prim�rio.
-    float A230_P;           ///< Fase calculada da Fase A do Prim�rio.
-    float B230_A;           ///< Amplitude calculada da Fase B do Prim�rio.
-    float B230_P;           ///< Fase calculada da Fase B do Prim�rio.
-    float C230_A;           ///< Amplitude calculada da Fase C do Prim�rio.
-    float C230_P;           ///< Fase calculada da Fase C do Prim�rio.
-    uint16_t acquisition_counter; ///< Contador de aquisi��es para garantir a sincronia entre interfaces.
-
-} t_current_phasor_frame;
-
-typedef struct {
-    uint16_t PTP_1[100];
-    uint16_t PTN1_1[100];
-    uint16_t PTN2_1[100];
-    uint16_t S420_1[100];
-    uint16_t PTP_2[100];
-    uint16_t PTN1_2[100];
-    uint16_t PTN2_2[100];
-    uint16_t S420_2[100];
-} t_temp_data;
-
 
 
 #endif

@@ -1,9 +1,9 @@
 #ifndef _SM_SERIAL_API_
 #define _SM_SERIAL_API_
 
-#define SOH	0x01 ///< Identificador do in�cio de frame de dados
-#define EOT	0x04 ///< Identificador de fim de frame de dados
-#define	ESC	0x1B ///< Sequencia de ESCAPE para Byte Stuffing
+#define SOH	        0x01 ///< Identificador do in�cio de frame de dados
+#define SOH_STM32	0x55 ///< Identificador do in�cio de frame de dados
+
 
 #define TX_STM_SOFT 82
 #define RX_STM_SOFT 83

@@ -51,8 +51,7 @@ uint8_t start_tx_frame(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPay
     tx->index_to_tx = 0;
     tx->chksum = 0;
     tx->isFinished = 0;
-    //INIT(tx->sm_tx_serial_api, SM_START, tx);	// Prepara a SM para iniciar a transmissao
-//        tx->pTxByte(SOH); // Inicia a transmissao pelo SOF
+    
     if(tx->tx_FF)
         tx->tx_start = 1;
     else{
@@ -107,56 +106,9 @@ STATE(SM_TX_WAITING) {
 STATE(SM_START) {
     sm_tx->estado = 2;
     sm_tx->pTxByte((uint8_t)sm_tx->type); // Inicia a transmissao pelo SOF
-	NEXT_STATE(SM_TX_DATA);
-}
-
-STATE(SM_TX_DATA) {
-
-    sm_tx->estado = 3;
-	if (sm_tx->index_to_tx == sm_tx->bytes_to_tx) {
-        sm_tx->pTxByte(EOT); // Inicia a transmissao pelo SOF
-		NEXT_STATE(SM_TX_CHKSUM_LSB);
-		return;
-	}
-    
-    uint8_t aux = sm_tx->ptr_payload[sm_tx->index_to_tx];
-	if (aux == SOH || aux == EOT || aux == ESC) {
-        sm_tx->pTxByte(ESC);
-		NEXT_STATE(SM_TX_BYTE_STUFFING);
-		return;
-	}
-
-    sm_tx->pTxByte(aux);
-    sm_tx->chksum = sm_tx->chksum + aux;
-    sm_tx->index_to_tx = sm_tx->index_to_tx + 1;	// A cada byte transmitido, diminui o numero de envios
-
-}
-
-// Eventos: TX_INT
-STATE(SM_TX_BYTE_STUFFING) {
-    sm_tx->estado = 4;
-    #ifdef __TMS320C28X__
-    uint8_t aux = readByte(sm_tx->ptr_payload,sm_tx->index_to_tx);
-    #else
-    uint8_t aux = sm_tx->ptr_payload[sm_tx->index_to_tx];
-    #endif
-    sm_tx->pTxByte(aux ^ 0xFF);
-    sm_tx->chksum = sm_tx->chksum + aux;
-    sm_tx->index_to_tx = sm_tx->index_to_tx + 1;	// A cada byte transmitido, diminui o numero de envios
-	NEXT_STATE(SM_TX_DATA);
-}
-
-STATE(SM_TX_CHKSUM_LSB) {
-    sm_tx->estado = 5;
-    sm_tx->pTxByte(0x80 | (uint8_t)sm_tx->chksum);
-	NEXT_STATE(SM_TX_CHKSUM_MSB);
-}
-
-STATE(SM_TX_CHKSUM_MSB) {
-    sm_tx->estado = 6;
-    sm_tx->pTxByte(0x80 | ((uint8_t)(sm_tx->chksum >> 8)));
 	NEXT_STATE(SM_TX_FINALIZE);
 }
+
 
 // Eventos: TX_INT
 STATE(SM_TX_FINALIZE) {

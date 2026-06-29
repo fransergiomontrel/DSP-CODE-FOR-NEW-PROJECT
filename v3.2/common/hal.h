@@ -18,6 +18,7 @@
 #include "F28377S/pins.h"
 
 typedef struct CiseiRxChannel CiseiRxChannel;
+typedef struct CiseiRxChannel_stm32 CiseiRxChannel_stm32;
 
 #define set_TXA()  {GpioDataRegs.GPASET.all   = (1L<<TXA);}
 #define clr_TXA()  {GpioDataRegs.GPACLEAR.all = (1L<<TXA);}
@@ -161,7 +162,6 @@ interrupt void xint2_isr(void);
 * @details Tratamento da interrup��o que n�o faz nada.
 */
 interrupt void doNothing(void);
-
 
 /**
 * @brief Fun��o de envio de dados pela softwart UART.
@@ -317,16 +317,6 @@ void SetupADCsEpwm(void);
 //void delay(uint8_t); //Fun��o n�o implementada, verificar.
 
 /**
-* @brief Fun��o de convers�o do valor lido.
-* @details Esta fun��o calcula um equivalente em tens�o do valor digital
-* gerado pelo CAD.
-* @param adcres Valor retornado pelo CAD.
-* @param bits Valor de bits do CAD.
-* @return Valor equivalente em volts.
-*/
-float64 analogEq(Uint16 adcres, Uint16 bits);
-
-/**
 * @brief Fun��o incializa��o e configura��o dos timers.
 * @details Nesta fun��o s�o inicializados e configurados os tr�s timers do
 * DSP para as suas fun��es e temporiza��es.
@@ -460,73 +450,9 @@ void TXInts(uint8_t);
 */
 void RXInts(uint8_t);
 
-/**
-* @brief Fun��o para popular o buffer de resultados.
-* @details Escreve no buffer de resultados da fase A do secund�rio
-* o valor passado por parametro na posi��o tamb�m passsada como parametro.
-* @param index Posi��o do vetor a ser populada.
-* @param value Valor que sera escrito.
-* @warning N�o utilizado na vers�o atual.
-*/
-void setA138(uint16_t index, uint16_t value);
-
-/**
-* @brief Fun��o para popular o buffer de resultados.
-* @details Escreve no buffer de resultados da fase B do secund�rio
-* o valor passado por parametro na posi��o tamb�m passsada como parametro.
-* @param index Posi��o do vetor a ser populada.
-* @param value Valor que sera escrito.
-* @warning N�o utilizado na vers�o atual.
-*/
-void setB138(uint16_t index, uint16_t value);
-
-/**
-* @brief Fun��o para popular o buffer de resultados.
-* @details Escreve no buffer de resultados da fase C do secund�rio
-* o valor passado por parametro na posi��o tamb�m passsada como parametro.
-* @param index Posi��o do vetor a ser populada.
-* @param value Valor que sera escrito.
-* @warning N�o utilizado na vers�o atual.
-*/
-void setC138(uint16_t index, uint16_t value);
-
-/**
-* @brief Fun��o para popular o buffer de resultados.
-* @details Escreve no buffer de resultados da fase A do prim�rio
-* o valor passado por parametro na posi��o tamb�m passsada como parametro.
-* @param index Posi��o do vetor a ser populada.
-* @param value Valor que sera escrito.
-* @warning N�o utilizado na vers�o atual.
-*/
-void setA230(uint16_t index, uint16_t value);
-
-/**
-* @brief Fun��o para popular o buffer de resultados.
-* @details Escreve no buffer de resultados da fase B do prim�rio
-* o valor passado por parametro na posi��o tamb�m passsada como parametro.
-* @param index Posi��o do vetor a ser populada.
-* @param value Valor que sera escrito.
-* @warning N�o utilizado na vers�o atual.
-*/
-void setB230(uint16_t index, uint16_t value);
-
-/**
-* @brief Fun��o para popular o buffer de resultados.
-* @details Escreve no buffer de resultados da fase C do prim�rio
-* o valor passado por parametro na posi��o tamb�m passsada como parametro.
-* @param index Posi��o do vetor a ser populada.
-* @param value Valor que sera escrito.
-* @warning N�o utilizado na vers�o atual.
-*/
-void setC230(uint16_t index, uint16_t value);
-
 void phasors_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data);
 
 void phasors_ret_to_polar(tms320_board_data_t * board_data);
-
-void quickSort(uint16_t vet[], int16_t esq, int16_t dir);
-
-float64 tempNTC(float res, uint16_t adc1, uint16_t adc2);
 
 void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data);
 
