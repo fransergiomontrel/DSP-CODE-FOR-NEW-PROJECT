@@ -17,7 +17,7 @@ struct{
 
 chrono chrono1;
 uint32_t RX_Bytes, RX_USB_Bytes;
-uint8_t buffer_USB[256];
+uint8_t buffer_USB[512];
 uint8_t buffer0[60];
 uint8_t buffer1[60];
 uint8_t buffer2[60];
@@ -117,8 +117,8 @@ STATE(SM_TENSAO_WAIT){
         rx_byte_soft();
     }
     if(rx_frameReceived(&rx_USB, &RX_USB_Bytes)){
-
-        if(rx_getFrameType(&rx_USB) == SYNC_FRAME){
+        if(rx_USB.command == MEASURE)
+        {
             memcpy(&syncPayload, rx_USB.pBuffer, sizeof(tms320_sync_frame_t));
             nominal_frequency = syncPayload.frequency;
             number_IEDs = syncPayload.number_ieds;
@@ -132,9 +132,17 @@ STATE(SM_TENSAO_WAIT){
                 PieCtrlRegs.PIEIER1.bit.INTx4 = 1;     // limpa PIE channel
                 XintRegs.XINT1CR.bit.POLARITY = 0x1;  // XINT1 - Polarity Conf.: 0x0, 0x2 -> Neg. Edge / 0x1 -> Pos. Edge / 0x3 -> Both
             }
+            rx_free_frame(&rx_USB);
             NEXT_STATE(SM_TENSAO_DELAY);
         }
-        rx_free_frame(&rx_USB);
+        else if(rx_USB.command == NOP)
+        {            
+            rx_free_frame(&rx_USB);            
+        }
+        else if(rx_USB.command == IDENT_IED)
+        {            
+            rx_free_frame(&rx_USB);            
+        }
     }
 }
 

@@ -932,6 +932,7 @@ interrupt void xint1_isr(void)
 {
     //Tratamento da interrupção
     CpuTimer2Regs.TCR.bit.TSS = 0;
+    CpuTimer2.InterruptCount = 0;
     b = (unsigned char)0x00;
     // Desabilita XINT1
     XintRegs.XINT1CR.bit.ENABLE = 0;
@@ -1052,7 +1053,6 @@ void serial_rx_to_fpga_Init(void){
 
 void rx_byte_soft(void)
 {
-    CpuTimer2.InterruptCount = 0;
     XintRegs.XINT1CR.bit.ENABLE = 1;   // habilita XINT1
     //Habilita canal da XINT1 no PIE
     PieCtrlRegs.PIEIER1.bit.INTx4 = 1;

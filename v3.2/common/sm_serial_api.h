@@ -1,9 +1,12 @@
 #ifndef _SM_SERIAL_API_
 #define _SM_SERIAL_API_
 
-#define SOH	        0x01 ///< Identificador do in�cio de frame de dados
-#define SOH_STM32	0x55 ///< Identificador do in�cio de frame de dados
-
+#define SOH	            0x01 ///< Identificador do in�cio de frame de dados
+#define SOH_STM32_LOW	0x55 ///< Identificador do in�cio de frame de dados
+#define SOH_STM32_HIGH	0xAA
+#define MEASURE	        0x02
+#define NOP	            0x00
+#define IDENT_IED	    0x01
 
 #define TX_STM_SOFT 82
 #define RX_STM_SOFT 83

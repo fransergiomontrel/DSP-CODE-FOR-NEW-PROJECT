@@ -1,5 +1,6 @@
 #include "sm_rx_serial_api.h"
 #include "hal.h"
+#include "CRC16.h"
 
 teSerialFrameType rx_getFrameType(CiseiRxChannel* rx){
     return rx->rx_frame_type;
@@ -14,13 +15,7 @@ void rx_reset_buffer(CiseiRxChannel* rx) {
 void rx_reset_buffer_stm32(CiseiRxChannel_stm32* rx) {
 	rx->bytesReceived = 0;
 	rx->chksum = 0;
-	INIT(rx->sm_rx_serial_api, SM_RX_WAITING_STM32, rx);
-}
-
-void rx_reset_buffer_stm32(CiseiRxChannel_stm32* rx) {
-	rx->bytesReceived = 0;
-	rx->chksum = 0;
-	INIT(rx->sm_rx_serial_api, SM_RX_WAITING_STM32, rx);
+	INIT(rx->sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, rx);
 }
 
 
@@ -48,12 +43,12 @@ void rx_interrupt_stm32(CiseiRxChannel_stm32* rx, uint8_t b) {
 
     rx->byte_received = b;
 	// Sempre que receber SOH reseta a recepcao
-	if (rx->byte_received == SOH_STM32)
+	if (rx->byte_received == SOH_STM32_LOW)
+		crc16_init();
 		rx_reset_buffer_stm32(rx);
 
 	EXEC(rx->sm_rx_serial_api);
 }
-
 
 void rx_free_frame(CiseiRxChannel* rx) {
 	rx->frameReceived = 0;
@@ -113,6 +108,84 @@ STATE(SM_RX_DATA) {
     sm_rx->pBuffer[sm_rx->bytesReceived] = sm_rx->byte_received;
     
 	sm_rx->bytesReceived = sm_rx->bytesReceived + 1;
+}
+
+#define sm_rx_stm32   ((CiseiRxChannel_stm32*)SM_PARAM)
+
+STATE(SM_RX_WAITING_STM32_LOW) {
+	if (sm_rx_stm32->byte_received == SOH_STM32_LOW)
+		crc16_data(sm_rx_stm32->byte_received);
+		NEXT_STATE(SM_RX_WAITING_STM32_HIGH);
+}
+
+STATE(SM_RX_WAITING_STM32_HIGH) {
+	if (sm_rx_stm32->byte_received == SOH_STM32_HIGH)
+		crc16_data(sm_rx_stm32->byte_received);
+		NEXT_STATE(SM_RX_COMMAND);
+}
+
+STATE(SM_RX_COMMAND) {
+	if (sm_rx_stm32->byte_received == MEASURE)
+	{
+		sm_rx_stm32->command = sm_rx_stm32->byte_received;
+		crc16_data(sm_rx_stm32->byte_received);
+		NEXT_STATE(SM_RX_LENGTH_LOW);
+	}
+	else if (sm_rx_stm32->byte_received == NOP)
+	{
+		sm_rx_stm32->command = sm_rx_stm32->byte_received;
+		crc16_data(sm_rx_stm32->byte_received);
+		NEXT_STATE(SM_RX_LENGTH_LOW);
+	}
+	else if (sm_rx_stm32->byte_received == IDENT_IED)
+	{
+		sm_rx_stm32->command = sm_rx_stm32->byte_received;
+		crc16_data(sm_rx_stm32->byte_received);
+		NEXT_STATE(SM_RX_LENGTH_LOW);
+	}
+}
+
+STATE(SM_RX_LENGTH_LOW) {
+	sm_rx_stm32->length = (uint16_t)(sm_rx_stm32->byte_received);
+	crc16_data(sm_rx_stm32->byte_received);
+	NEXT_STATE(SM_RX_LENGTH_HIGH);
+}
+
+STATE(SM_RX_LENGTH_HIGH) {
+	sm_rx_stm32->length = (((uint16_t)(sm_rx_stm32->byte_received)) << 8) | sm_rx_stm32->length;
+	crc16_data(sm_rx_stm32->byte_received);
+	NEXT_STATE(SM_RX_DATA_STM32);
+}
+
+STATE(SM_RX_DATA_STM32) {
+
+	if (sm_rx_stm32->bytesReceived == sm_rx_stm32->length) {
+		// Buffer encheu...
+		NEXT_STATE(SM_RX_CHECKSUM_LOW);
+		return;
+	}
+    sm_rx_stm32->pBuffer[sm_rx->bytesReceived] = sm_rx_stm32->byte_received;
+	sm_rx_stm32->chksum = crc16_data(sm_rx_stm32->byte_received);
+	sm_rx_stm32->bytesReceived = sm_rx_stm32->bytesReceived + 1;
+
+}
+
+STATE(SM_RX_CHECKSUM_LOW) {
+	sm_rx_stm32->chksumReceived = (uint16_t)(sm_rx_stm32->byte_received);
+	NEXT_STATE(SM_RX_CHECKSUM_HIGH);
+}
+
+STATE(SM_RX_CHECKSUM_HIGH) {
+	sm_rx_stm32->chksumReceived = (((uint16_t)(sm_rx_stm32->byte_received)) << 8) | sm_rx_stm32->chksumReceived;
+	if(sm_rx_stm32->chksumReceived == sm_rx_stm32->chksum)
+	{
+		NEXT_STATE(SM_RX_WAITING_STM32_LOW);
+		sm_rx_stm32->frameReceived = 1;
+	}
+	else
+	{
+		NEXT_STATE(SM_RX_WAITING_STM32_LOW);
+	}
 }
 
 

@@ -56,9 +56,8 @@ typedef union
 
 typedef struct 
 {
-    uint8_t command;
-    uint8_t number_ieds;
     uint8_t frequency;
+    uint8_t number_ieds;
 }tms320_sync_frame_t;
 
 //#pragma PACKED
