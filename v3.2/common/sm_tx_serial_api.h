@@ -31,7 +31,7 @@ typedef struct {
     tpTxByte pTxByte;              ///< Ponteiro do byte a ser transmitido (LEGADO - N�o � mais utilizada).
     boolean tx_FF;                 ///< Sinalizador que indica se um byte 0xFF deve ser constantemente transmitido quando nenhum frame est� dispon�vel para a comunica��o. Esta op��o � usada para sincronica��o entre o m�dulo de tens�o e a porta serial/usb do computador.
     boolean tx_start;              ///< Sinalizador que indica a necessidade de come�ar a transmiss�o de um frame.
-    uint8_t estado;                ///< Vari�vel utilizada apenas para depura��o identificando o estado atual da m�quina de estados da transmiss�o.
+    uint8_t command;                ///< Vari�vel utilizada apenas para depura��o identificando o estado atual da m�quina de estados da transmiss�o.
 } CiseiTxChannel;
 
 /**
@@ -49,7 +49,7 @@ void init_tx_serial(CiseiTxChannel* tx, tpTxByte pTxByteFunc, boolean dummy);
 * @param nBytes N�mero de bytes do vetor com os dados a serem transmitidos.
 \see teSerialFrameType.
 */
-uint8_t start_tx_frame(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPayload, uint32_t nBytes);
+uint8_t start_tx_frame(CiseiTxChannel* tx, teSerialFrameType type);
 /**
 * Fun��o que inicializa a estrutura para a comunica��o serial de transmiss�o.
 * @param tx Ponteiro para uma estrutura CiseiTxChannel com o estado da transmiss�o serial.
@@ -70,10 +70,19 @@ void tx_interrupt(CiseiTxChannel* tx);
 */
 uint16_t tx_end(CiseiTxChannel* tx);
 
-uint8_t start_tx_frame_software(CiseiTxChannel* tx, teSerialFrameType type, uint8_t* pPayload, uint32_t nBytes);
+uint8_t start_tx_frame_software_fpga0(CiseiTxChannel* tx, teSerialFrameType type);
+
+uint8_t start_tx_frame_software_stm32(CiseiTxChannel* tx, uint8_t command, uint8_t* pPayload, uint32_t nBytes);
 
 STATE(SM_START);                ///< Dispara a comunica��o serial (inicia a transmiss�o do frame).
 STATE(SM_TX_WAITING);           ///< Estado aguardando o disparo da transmiss�o serial
 STATE(SM_TX_FINALIZE);          ///< Estado sinalizando o fim da transmiss�o serial.
 
+STATE(SM_START_STM32_LOW);
+STATE(SM_START_STM32_HIGH);
+STATE(SM_TX_COMMAND);
+STATE(SM_TX_DATA_STM32);
+STATE(SM_TX_CHECKSUM_LOW);
+STATE(SM_TX_CHECKSUM_HIGH);
+STATE(SM_TX_FINALIZE_STM32) ;
 #endif

@@ -1,12 +1,23 @@
 #ifndef _SM_SERIAL_API_
 #define _SM_SERIAL_API_
 
-#define SOH	            0x01 ///< Identificador do in�cio de frame de dados
-#define SOH_STM32_LOW	0x55 ///< Identificador do in�cio de frame de dados
-#define SOH_STM32_HIGH	0xAA
-#define MEASURE	        0x02
-#define NOP	            0x00
-#define IDENT_IED	    0x01
+#define SOH	               0x01 ///< Identificador do in�cio de frame de dados
+#define SOH_STM32_LOW	   0x55 ///< Identificador do in�cio de frame de dados
+#define SOH_STM32_HIGH	   0xAA
+#define MEASURE	           0x02
+#define NOP	               0x00
+#define COMMAND_ERROR      0x7F
+#define LENGTH_2B          0x02
+#define IDENT_IED	       0x01
+#define TMS_FRAME_LEN_LOW  0x5E
+#define TMS_FRAME_LEN_HIGH 0x01
+
+#define ERROR_INVALID_CHECKSUM -1
+#define ERROR_INCOMPLETE_FRAME -2
+
+#define PROTOCOL 0x01
+#define INCOMPLETE_PACKAGE 0x01
+#define INVALID_CHECKSUM 0x02
 
 #define TX_STM_SOFT 82
 #define RX_STM_SOFT 83

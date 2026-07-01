@@ -20,6 +20,7 @@
 typedef struct CiseiRxChannel CiseiRxChannel;
 typedef struct CiseiRxChannel_stm32 CiseiRxChannel_stm32;
 
+
 #define set_TXA()  {GpioDataRegs.GPASET.all   = (1L<<TXA);}
 #define clr_TXA()  {GpioDataRegs.GPACLEAR.all = (1L<<TXA);}
 
@@ -456,7 +457,7 @@ void phasors_ret_to_polar(tms320_board_data_t * board_data);
 
 void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data);
 
-void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_uart_frame);
+void tms320_frame_crc(tms320_uart_frame_t * tms320_uart_frame);
 
 extern uint16_t acquisition_counter;
 #endif

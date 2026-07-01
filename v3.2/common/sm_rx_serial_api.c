@@ -63,6 +63,11 @@ uint8_t rx_frameReceived(CiseiRxChannel* rx, uint32_t* bytesReceived) {
 	return rx->frameReceived;
 }
 
+uint8_t rx_frameReceived_stm32(CiseiRxChannel_stm32* rx, uint32_t* bytesReceived) {
+	*bytesReceived = rx->bytesReceived;
+	return rx->frameReceived;
+}
+
 uint8_t rx_checkframeReceived(CiseiRxChannel* rx) {
 	return rx->frameReceived;
 }
@@ -106,8 +111,8 @@ STATE(SM_RX_DATA) {
 	}
 
     sm_rx->pBuffer[sm_rx->bytesReceived] = sm_rx->byte_received;
-    
 	sm_rx->bytesReceived = sm_rx->bytesReceived + 1;
+
 }
 
 #define sm_rx_stm32   ((CiseiRxChannel_stm32*)SM_PARAM)
@@ -184,6 +189,7 @@ STATE(SM_RX_CHECKSUM_HIGH) {
 	}
 	else
 	{
+		sm_rx_stm32->error = ERROR_INVALID_CHECKSUM;
 		NEXT_STATE(SM_RX_WAITING_STM32_LOW);
 	}
 }

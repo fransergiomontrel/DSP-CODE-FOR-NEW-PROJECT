@@ -29,6 +29,7 @@ uint16_t syncTimes = 0, nominal_frequency = 0, CRC_retry = 0, number_IEDs = 0;
 int32_t delay_dT1 = 0, delay_dT2 = 0, delay_dT3 = 0, delay_dT4 = 0;
 uint32_t delay__T1, delay__T2, delay__T3, delay__T4;
 uint32_t ordered_list_T[4];
+uint8_t once_start = 1;
 
 char ordered_list_Tname [4] = {IED_1, IED_2, IED_3, IED_4};
 
@@ -89,7 +90,6 @@ STATE(SM_TENSAO_CFG){
     init_tx_serial(&tx_Fibra2, tx_C_byte, 0);
     init_tx_serial(&tx_Fibra3, tx_B_byte, 0);
 
-    //init_rx_serial(&rx_USB, buffer_USB, sizeof(buffer_USB));
     init_rx_serial_stm32(&rx_USB, buffer_USB);
     init_rx_serial(&rx_Fibra0, buffer0, sizeof(buffer0));
     init_rx_serial(&rx_Fibra1, buffer1, sizeof(buffer1));
@@ -116,7 +116,8 @@ STATE(SM_TENSAO_WAIT){
         serial_rx_to_stm_Init();
         rx_byte_soft();
     }
-    if(rx_frameReceived(&rx_USB, &RX_USB_Bytes)){
+    if(rx_frameReceived_stm32(&rx_USB, &RX_USB_Bytes))
+    {
         if(rx_USB.command == MEASURE)
         {
             memcpy(&syncPayload, rx_USB.pBuffer, sizeof(tms320_sync_frame_t));
@@ -132,18 +133,113 @@ STATE(SM_TENSAO_WAIT){
                 PieCtrlRegs.PIEIER1.bit.INTx4 = 1;     // limpa PIE channel
                 XintRegs.XINT1CR.bit.POLARITY = 0x1;  // XINT1 - Polarity Conf.: 0x0, 0x2 -> Neg. Edge / 0x1 -> Pos. Edge / 0x3 -> Both
             }
-            rx_free_frame(&rx_USB);
+            rx_free_frame_stm32(&rx_USB);
             NEXT_STATE(SM_TENSAO_DELAY);
         }
         else if(rx_USB.command == NOP)
-        {            
-            rx_free_frame(&rx_USB);            
+        {   
+            crc16_init();
+            crc16_data(SOH_STM32_LOW);
+            crc16_data(SOH_STM32_HIGH);
+            crc16_data(NOP);
+            crc16_data(NOP);
+            uint16_t CRC = crc16_data(NOP);
+            serial_tx_to_stm_Init();
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(SOH_STM32_LOW);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(SOH_STM32_HIGH);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(NOP);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(NOP);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(NOP);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(CRC & 0x00FF);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(CRC >> 8);
+            while(CpuTimer2.InterruptCount < 11);            
+            rx_free_frame_stm32(&rx_USB);
         }
         else if(rx_USB.command == IDENT_IED)
-        {            
-            rx_free_frame(&rx_USB);            
+        {
+                       
+            rx_free_frame_stm32(&rx_USB);            
         }
     }
+    if(rx_USB.error == ERROR_INVALID_CHECKSUM)
+    {        
+        crc16_init();
+        crc16_data(SOH_STM32_LOW);
+        crc16_data(SOH_STM32_HIGH);
+        crc16_data(COMMAND_ERROR);
+        crc16_data(LENGTH_2B);
+        crc16_data(NOP);
+        crc16_data(PROTOCOL);
+        uint16_t CRC = crc16_data(INVALID_CHECKSUM);
+        serial_tx_to_stm_Init();
+        tx_byte_soft(SOH_STM32_LOW);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(SOH_STM32_HIGH);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(COMMAND_ERROR);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(NOP);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(LENGTH_2B);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(PROTOCOL);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(INVALID_CHECKSUM);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(CRC & 0x00FF);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(CRC >> 8);
+        while(CpuTimer2.InterruptCount < 11);            
+        
+    }
+    
+    if(COMPARE(rx_USB.sm_rx_serial_api, SM_RX_DATA_STM32))
+    {
+        if(once_start)
+        {
+            once_start = 0;
+            START(500);
+        }
+        if(IS_FINISHED)
+        {
+            crc16_init();
+            crc16_data(SOH_STM32_LOW);
+            crc16_data(SOH_STM32_HIGH);
+            crc16_data(COMMAND_ERROR);
+            crc16_data(LENGTH_2B);
+            crc16_data(NOP);
+            crc16_data(PROTOCOL);
+            uint16_t CRC = crc16_data(INCOMPLETE_PACKAGE);
+            serial_tx_to_stm_Init();
+            tx_byte_soft(SOH_STM32_LOW);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(SOH_STM32_HIGH);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(COMMAND_ERROR);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(LENGTH_2B);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(NOP);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(PROTOCOL);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(INCOMPLETE_PACKAGE);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(CRC & 0x00FF);
+            while(CpuTimer2.InterruptCount < 11);
+            tx_byte_soft(CRC >> 8);
+            while(CpuTimer2.InterruptCount < 11);
+            INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, &rx_USB);
+            once_start = 1;            
+        }
+    }   
 }
 
 STATE(SM_TENSAO_DELAY){
@@ -325,29 +421,29 @@ STATE(SM_TENSAO_DELAY){
         CpuTimer1Regs.TCR.bit.TRB = 1;
         if(number_IEDs == ONE_FIBER){
 
-            start_tx_frame(&tx_Fibra1, SYNC_DELAY, 0x0, 0x0);
+            start_tx_frame(&tx_Fibra1, SYNC_DELAY);
             while(!tx_end(&tx_Fibra1));
 
         }else if(number_IEDs == TWO_FIBERS) {
             
-             start_tx_frame(&tx_Fibra1, SYNC_DELAY, 0x0, 0x0);
-             start_tx_frame(&tx_Fibra2, SYNC_DELAY, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra1, SYNC_DELAY);
+             start_tx_frame(&tx_Fibra2, SYNC_DELAY);
              while(!(tx_end(&tx_Fibra1) && tx_end(&tx_Fibra2)));
 
         }else if(number_IEDs == THREE_FIBERS) {
             
-             start_tx_frame(&tx_Fibra1, SYNC_DELAY, 0x0, 0x0);
-             start_tx_frame(&tx_Fibra2, SYNC_DELAY, 0x0, 0x0);
-             start_tx_frame(&tx_Fibra3, SYNC_DELAY, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra1, SYNC_DELAY);
+             start_tx_frame(&tx_Fibra2, SYNC_DELAY);
+             start_tx_frame(&tx_Fibra3, SYNC_DELAY);
              while(!(tx_end(&tx_Fibra1) && tx_end(&tx_Fibra2) && tx_end(&tx_Fibra3)));
 
         }
         else if(number_IEDs == FOUR_FIBERS) {
             
-             start_tx_frame(&tx_Fibra1, SYNC_DELAY, 0x0, 0x0);
-             start_tx_frame(&tx_Fibra2, SYNC_DELAY, 0x0, 0x0);
-             start_tx_frame(&tx_Fibra3, SYNC_DELAY, 0x0, 0x0);
-             start_tx_frame(&tx_Fibra4, SYNC_DELAY, 0x0, 0x0);
+             start_tx_frame(&tx_Fibra1, SYNC_DELAY);
+             start_tx_frame(&tx_Fibra2, SYNC_DELAY);
+             start_tx_frame(&tx_Fibra3, SYNC_DELAY);
+             start_tx_frame(&tx_Fibra4, SYNC_DELAY);
              while(!(tx_end(&tx_Fibra1) && tx_end(&tx_Fibra2) && tx_end(&tx_Fibra3) && tx_end(&tx_Fibra4)));
 
         }
@@ -388,67 +484,67 @@ STATE(SM_TENSAO_TX_SYNC){
         serial_tx_to_fpga_Init();
         if(nominal_frequency == NOM_FREQ_60HZ)
         {
-            start_tx_frame_software(&tx_Fibra0, SYNC_FRAME_60HZ, 0x0, 0x0);
+            start_tx_frame_software_fpga0(&tx_Fibra0, SYNC_FRAME_60HZ);
         }
         else if (nominal_frequency == NOM_FREQ_50HZ)
         {
-            start_tx_frame_software(&tx_Fibra0, SYNC_FRAME_50HZ, 0x0, 0x0);
+            start_tx_frame_software_fpga0(&tx_Fibra0, SYNC_FRAME_50HZ);
         }
         //Send sync to current module
         if(number_IEDs == ONE_FIBER){
 
             if(nominal_frequency == NOM_FREQ_60HZ)
             {
-                start_tx_frame(&tx_Fibra1, SYNC_FRAME_60HZ, 0x0, 0x0);
+                start_tx_frame(&tx_Fibra1, SYNC_FRAME_60HZ);
             }
             else if (nominal_frequency == NOM_FREQ_50HZ)
             {
-                start_tx_frame(&tx_Fibra1, SYNC_FRAME_50HZ, 0x0, 0x0);
+                start_tx_frame(&tx_Fibra1, SYNC_FRAME_50HZ);
             }
             
         }else if(number_IEDs == TWO_FIBERS){
 
             if(nominal_frequency == NOM_FREQ_60HZ)
             {
-                start_tx_frame(&tx_Fibra1, SYNC_FRAME_60HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra2, SYNC_FRAME_60HZ, 0x0, 0x0);
+                start_tx_frame(&tx_Fibra1, SYNC_FRAME_60HZ);
+                start_tx_frame(&tx_Fibra2, SYNC_FRAME_60HZ);
             }
             else if (nominal_frequency == NOM_FREQ_50HZ)
             {
-                start_tx_frame(&tx_Fibra1, SYNC_FRAME_50HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra2, SYNC_FRAME_50HZ, 0x0, 0x0);
+                start_tx_frame(&tx_Fibra1, SYNC_FRAME_50HZ);
+                start_tx_frame(&tx_Fibra2, SYNC_FRAME_50HZ);
             }           
 
         }else if(number_IEDs == THREE_FIBERS){
 
             if(nominal_frequency == NOM_FREQ_60HZ)
             {
-                start_tx_frame(&tx_Fibra1, SYNC_FRAME_60HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra2, SYNC_FRAME_60HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra3, SYNC_FRAME_60HZ, 0x0, 0x0);
+                start_tx_frame(&tx_Fibra1, SYNC_FRAME_60HZ);
+                start_tx_frame(&tx_Fibra2, SYNC_FRAME_60HZ);
+                start_tx_frame(&tx_Fibra3, SYNC_FRAME_60HZ);
             }
             else if (nominal_frequency == NOM_FREQ_50HZ)
             {
-                start_tx_frame(&tx_Fibra1, SYNC_FRAME_50HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra2, SYNC_FRAME_50HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra3, SYNC_FRAME_50HZ, 0x0, 0x0);
+                start_tx_frame(&tx_Fibra1, SYNC_FRAME_50HZ);
+                start_tx_frame(&tx_Fibra2, SYNC_FRAME_50HZ);
+                start_tx_frame(&tx_Fibra3, SYNC_FRAME_50HZ);
             }
 
         }else if(number_IEDs == FOUR_FIBERS){
 
             if(nominal_frequency == NOM_FREQ_60HZ)
             {
-                start_tx_frame(&tx_Fibra1, SYNC_FRAME_60HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra2, SYNC_FRAME_60HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra3, SYNC_FRAME_60HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra4, SYNC_FRAME_60HZ, 0x0, 0x0);
+                start_tx_frame(&tx_Fibra1, SYNC_FRAME_60HZ);
+                start_tx_frame(&tx_Fibra2, SYNC_FRAME_60HZ);
+                start_tx_frame(&tx_Fibra3, SYNC_FRAME_60HZ);
+                start_tx_frame(&tx_Fibra4, SYNC_FRAME_60HZ);
             }
             else if (nominal_frequency == NOM_FREQ_50HZ)
             {
-                start_tx_frame(&tx_Fibra1, SYNC_FRAME_50HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra2, SYNC_FRAME_50HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra3, SYNC_FRAME_50HZ, 0x0, 0x0);
-                start_tx_frame(&tx_Fibra4, SYNC_FRAME_50HZ, 0x0, 0x0);
+                start_tx_frame(&tx_Fibra1, SYNC_FRAME_50HZ);
+                start_tx_frame(&tx_Fibra2, SYNC_FRAME_50HZ);
+                start_tx_frame(&tx_Fibra3, SYNC_FRAME_50HZ);
+                start_tx_frame(&tx_Fibra4, SYNC_FRAME_50HZ);
             }
         }
 
@@ -963,7 +1059,7 @@ STATE(SM_TENSAO_REQ_I0){
     //Wait to recieve data via fiber
     if(JUST_ARRIVED){
         serial_tx_to_fpga_Init();
-        start_tx_frame(&tx_Fibra0, DATA_REQUEST, 0x0, 0x0);
+        start_tx_frame_software_fpga0(&tx_Fibra0, DATA_REQUEST);
         while(!tx_end(&tx_Fibra0));
         serial_rx_to_fpga_Init();
         rx_byte_soft();
@@ -1004,7 +1100,7 @@ STATE(SM_TENSAO_REQ_I1){
     if(JUST_ARRIVED){
 
         START(9000000);
-        start_tx_frame(&tx_Fibra1, DATA_REQUEST, 0x0, 0x0);
+        start_tx_frame(&tx_Fibra1, DATA_REQUEST);
 
     }if(IS_FINISHED){
 
@@ -1043,7 +1139,7 @@ STATE(SM_TENSAO_REQ_I2){
     if(JUST_ARRIVED){
 
         START(9000000);
-        start_tx_frame(&tx_Fibra2, DATA_REQUEST, 0x0, 0x0);
+        start_tx_frame(&tx_Fibra2, DATA_REQUEST);
         
     }if(IS_FINISHED){
 
@@ -1078,7 +1174,7 @@ STATE(SM_TENSAO_REQ_I3){
     if(JUST_ARRIVED){
         
         START(9000000);
-        start_tx_frame(&tx_Fibra3, DATA_REQUEST, 0x0, 0x0);
+        start_tx_frame(&tx_Fibra3, DATA_REQUEST);
         
     }
     if(IS_FINISHED){
@@ -1113,7 +1209,7 @@ STATE(SM_TENSAO_REQ_I4){
     if(JUST_ARRIVED){
         
         START(9000000);
-        start_tx_frame(&tx_Fibra4, DATA_REQUEST, 0x0, 0x0);
+        start_tx_frame(&tx_Fibra4, DATA_REQUEST);
         
     }if(IS_FINISHED){
 
@@ -1220,9 +1316,10 @@ STATE(SM_SEND_DATA){
         memcpy(&(tms320_data.boards[4]), &board_data_4, sizeof(tms320_board_data_t));
         //Send data to STM32 through software serial
         //data_frame.pCurrent.acquisition_counter = acquisition_counter;
-        tms320_frame_crc(&tms320_data, &tms320_uart_frame);
+        //tms320_frame_crc(&tms320_data, &tms320_uart_frame);
+        memcpy(&(tms320_uart_frame.payload), &tms320_data, sizeof(tms320_data_t));
         serial_tx_to_stm_Init();
-        start_tx_frame_software(&tx_USB, TMS320_DATA_CRC, (uint8_t*)&tms320_uart_frame, sizeof(tms320_uart_frame));//Montar pacote de transferencia
+        start_tx_frame_software_stm32(&tx_USB, MEASURE, (uint8_t*)&tms320_uart_frame, sizeof(tms320_uart_frame));//Montar pacote de transferencia
 
     }
     if(tx_end(&tx_USB)){

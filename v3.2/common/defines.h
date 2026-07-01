@@ -42,7 +42,7 @@
 #define IED_4 '4'
 
 #define NO_FRAME -1
-#define INCOMPLETE_FRAME -2
+#define INCOMPLETE_PACKAGE -2
 #define WRONG_FRAME -3
 #define ADS1118_CRC_NACK -4
 

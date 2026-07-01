@@ -37,6 +37,7 @@ typedef struct CiseiRxChannel_stm32{
     uint8_t* pBuffer;                   ///< Ponteiro do buffer de recep��o dos dados.
     uint32_t bytesReceived;             ///< N�mero de bytes v�lidos recebidos do frame corrente.
     uint8_t  command;
+    int8_t  error;
     uint8_t  frameReceived;                          
     uint16_t  length;             
     uint16_t chksum;                    ///< Vari�vel tempor�ria que � utilizada para o c�lculo do CHKSUM. A cada byte recebido esta vari�vel � atualizada.
@@ -72,6 +73,8 @@ void init_rx_serial_stm32(CiseiRxChannel_stm32* rx, uint8_t* pBuffer);
 */
 void rx_free_frame(CiseiRxChannel* rx);
 
+void rx_free_frame_stm32(CiseiRxChannel_stm32* rx);
+
 /**
  * Fun��o que esvazia e inicializa a estrutura de recep��o. \see CiseiRxChannel
  * @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recep��o serial.
@@ -85,6 +88,8 @@ void rx_reset_buffer(CiseiRxChannel* rx);
 * @return TRUE(1) se o um frame v�lido foi recebido e est� dispon�vel.
 */
 uint8_t rx_frameReceived(CiseiRxChannel* rx, uint32_t* bytesReceived);
+
+uint8_t rx_frameReceived_stm32(CiseiRxChannel_stm32* rx, uint32_t* bytesReceived);
 
 uint8_t rx_checkframeReceived(CiseiRxChannel* rx);
 

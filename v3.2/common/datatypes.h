@@ -60,7 +60,7 @@ typedef struct
     uint8_t number_ieds;
 }tms320_sync_frame_t;
 
-//#pragma PACKED
+#pragma pack(push, 1)
 typedef struct 
 {
     float channel1[TMS320_CHANNEL_FLOAT_COUNT];
@@ -73,23 +73,22 @@ typedef struct
     int8_t alarm;
     int8_t status;
 } tms320_board_data_t;
-//#pragma UNPACKED
 
-//#pragma PACKED
-typedef struct 
+
+//#pragma pack(1)
+typedef struct
 {
     tms320_board_data_t boards[TMS320_BOARD_COUNT];
 } tms320_data_t;
-//#pragma UNPACKED
 
 
-//#pragma PACKED
+//#pragma pack(1)
 typedef struct
 {
     tms320_data_t payload;
     uint16_t crc;
 } tms320_uart_frame_t;
-//#pragma UNPACKED
+#pragma pack(pop)
 
 //! Pacote das estatisticas do sincronismo entre interfaces.
 typedef struct {

@@ -1,4 +1,5 @@
 #include "common/sm_serial_api.h"
+#include "common/datatypes.h"
 #include "common/hal.h"
 #include "pins.h"
 #include "F28x_Project.h"
@@ -52,9 +53,8 @@ CiseiTxChannel tx_Fibra4;
 
 
 //Global variable to transmit through soft serial
-uint8_t * ptr_global;
-uint8_t byte_global;
-uint8_t parity_bit;
+volatile uint8_t byte_global;
+volatile uint8_t parity_bit;
 //Global variable to receive through soft serial
 uint8_t b = 0x00;
 uint8_t rec_parity_bit = 0;
@@ -379,15 +379,14 @@ void GPIOInit(void){
 
 void tx_byte_soft(uint8_t b)
 {
-    byte_global = b;
-    ptr_global = &byte_global;       
+    byte_global = b;       
     uint8_t i;
-    parity_bit = (*ptr_global >> 0) & 0x01;
+    parity_bit = (byte_global >> 0) & 0x01;
     CpuTimer2.InterruptCount = 0;
 
     for(i = 1; i < 8; i++)
     {
-        parity_bit ^= (*ptr_global >> i) & 0x01;
+        parity_bit ^= (byte_global >> i) & 0x01;
     }
     
     CpuTimer2Regs.TCR.bit.TSS = 0;
@@ -558,12 +557,12 @@ interrupt void timer2_tx_stm_isr(void){
    //Start bit
    if(CpuTimer2.InterruptCount == 0)
    {
-       GpioDataRegs.GPCDAT.bit.GPIO82 = (*ptr_global >> CpuTimer2.InterruptCount) & 0x00;
+       GpioDataRegs.GPCDAT.bit.GPIO82 = (byte_global >> CpuTimer2.InterruptCount) & 0x00;
    }
    //Data byte
    else if(CpuTimer2.InterruptCount < 9)
    {
-       GpioDataRegs.GPCDAT.bit.GPIO82 = (*ptr_global >> (CpuTimer2.InterruptCount - 1)) & 0x01;
+       GpioDataRegs.GPCDAT.bit.GPIO82 = (byte_global >> (CpuTimer2.InterruptCount - 1)) & 0x01;
    }
    //Parity bit
    else if(CpuTimer2.InterruptCount == 9)
@@ -587,12 +586,12 @@ interrupt void timer2_tx_fpga_isr(void){
    //Start bit
    if(CpuTimer2.InterruptCount == 0)
    {
-       GpioDataRegs.GPADAT.bit.GPIO28 = (*ptr_global >> CpuTimer2.InterruptCount) & 0x00;
+       GpioDataRegs.GPADAT.bit.GPIO28 = (byte_global >> CpuTimer2.InterruptCount) & 0x00;
    }
    //Data byte
    else if(CpuTimer2.InterruptCount < 9)
    {
-       GpioDataRegs.GPADAT.bit.GPIO28 = (*ptr_global >> (CpuTimer2.InterruptCount - 1)) & 0x01;
+       GpioDataRegs.GPADAT.bit.GPIO28 = (byte_global >> (CpuTimer2.InterruptCount - 1)) & 0x01;
    }
    //Parity bit
    else if(CpuTimer2.InterruptCount == 9)
@@ -994,7 +993,7 @@ interrupt void timer2_rx_fpga_isr(void){
         XintRegs.XINT1CR.bit.ENABLE = 1;
         //Habilita canal da XINT1 no PIE
         PieCtrlRegs.PIEIER1.bit.INTx4 = 1;
-        rx_interrupt(&rx_USB, b);
+        rx_interrupt(&rx_Fibra0, b);
     }
     
     ++CpuTimer2.InterruptCount;
@@ -1189,10 +1188,10 @@ void phasors_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board
         {
             board_data->alarm = NO_FRAME;
         }
-        //INCOMPLETE_FRAME
+        //INCOMPLETE_PACKAGE
         else if((rx_getFrameType(rx_Fibra) == CURRENT_PHASOR_X) && (!rx_checkframeReceived(rx_Fibra)))
         {
-            board_data->alarm = INCOMPLETE_FRAME;
+            board_data->alarm = INCOMPLETE_PACKAGE;
         }
         //WRONG_FRAME
         else if((rx_checkframeReceived(rx_Fibra)) && (rx_getFrameType(rx_Fibra) != CURRENT_PHASOR_X))
@@ -1266,9 +1265,9 @@ void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board
     
 }
 
-void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_uart_frame)
+void tms320_frame_crc(tms320_uart_frame_t * tms320_uart_frame)
 {
-    crc16_init();
+    //crc16_init();
     uint8_t i;
     uint8_t j;
     uint32_t tmp_1;
@@ -1277,8 +1276,8 @@ void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_
 
     for(i = 0; i < TMS320_BOARD_COUNT; i++)
     {
-        memcpy(&tmp_1, &(tms320_data->boards[i].channel1[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_data->boards[i].channel1[1]), sizeof(tmp_2));
+        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel1[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel1[1]), sizeof(tmp_2));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
@@ -1288,8 +1287,8 @@ void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
 
-        memcpy(&tmp_1, &(tms320_data->boards[i].channel2[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_data->boards[i].channel2[1]), sizeof(tmp_2));
+        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel2[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel2[1]), sizeof(tmp_2));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
@@ -1299,8 +1298,8 @@ void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
 
-        memcpy(&tmp_1, &(tms320_data->boards[i].channel3[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_data->boards[i].channel3[1]), sizeof(tmp_2));
+        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel3[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel3[1]), sizeof(tmp_2));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
@@ -1310,8 +1309,8 @@ void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
 
-        memcpy(&tmp_1, &(tms320_data->boards[i].channel4[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_data->boards[i].channel4[1]), sizeof(tmp_2));
+        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel4[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel4[1]), sizeof(tmp_2));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
@@ -1321,8 +1320,8 @@ void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
 
-        memcpy(&tmp_1, &(tms320_data->boards[i].channel5[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_data->boards[i].channel5[1]), sizeof(tmp_2));
+        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel5[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel5[1]), sizeof(tmp_2));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
@@ -1332,8 +1331,8 @@ void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
 
-        memcpy(&tmp_1, &(tms320_data->boards[i].channel6[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_data->boards[i].channel6[1]), sizeof(tmp_2));
+        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel6[0]), sizeof(tmp_1));
+        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel6[1]), sizeof(tmp_2));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
         crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
@@ -1345,17 +1344,17 @@ void tms320_frame_crc(tms320_data_t * tms320_data, tms320_uart_frame_t * tms320_
 
         for(j = 0; j < TMS320_ANALOG_FLOAT_COUNT; j++)
         {
-            memcpy(&tmp_1, &(tms320_data->boards[i].analog[j]), sizeof(tmp_1));
+            memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].analog[j]), sizeof(tmp_1));
             crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
             crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
             crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
             crc16_data((uint16_t)((0x000000FF)&(tmp_1>>24)));
         }
 
-        crc16_data((uint16_t)(tms320_data->boards[i].alarm));
-        CRC_calc = crc16_data((uint16_t)(tms320_data->boards[i].status));
+        crc16_data((uint16_t)(tms320_uart_frame->payload.boards[i].alarm));
+        CRC_calc = crc16_data((uint16_t)(tms320_uart_frame->payload.boards[i].status));
     }
-    memcpy(&(tms320_uart_frame->payload), tms320_data, sizeof(tms320_data_t));
+    //memcpy(&(tms320_uart_frame->payload), tms320_data, sizeof(tms320_data_t));
     tms320_uart_frame->crc = CRC_calc; 
 }
 
