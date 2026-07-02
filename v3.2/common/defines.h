@@ -42,26 +42,26 @@
 #define IED_4 '4'
 
 #define NO_FRAME -1
-#define INCOMPLETE_PACKAGE -2
+#define INCOMPLETE_FRAME -2
 #define WRONG_FRAME -3
 #define ADS1118_CRC_NACK -4
 
-#define NOM_FREQ_50HZ 50
-#define NOM_FREQ_60HZ 60
+#define NOM_FREQ_50HZ 0x32
+#define NOM_FREQ_60HZ 0x3C
 
-#define NO_FIBER 0
-#define ONE_FIBER 1
-#define TWO_FIBERS 2
-#define THREE_FIBERS 3
-#define FOUR_FIBERS 4
+#define NO_FIBER     0x00
+#define ONE_FIBER    0x01
+#define TWO_FIBERS   0x02
+#define THREE_FIBERS 0x03
+#define FOUR_FIBERS  0x04
 
 #define syncMax 256
 
-#define RESULTS_BUFFER_SIZE   7215  // Number of samples per acquisition
-#define LUT_FLOAT_FACTOR   32767  // Number of samples per acquisition
-#define TARGET_FREQ           60        // Frequency of target signal (in Hz)
-#define BASE_FREQ             200       // Frequency of main processor clock (in MHz)
-#define NUM_CYCLES            (1*1)     // Number of cycles to acquire
-#define K                     (1*1)     // K value for DFT
+#define RESULTS_BUFFER_SIZE 7215  // Number of samples per acquisition
+#define LUT_FLOAT_FACTOR    32767  // Number of samples per acquisition
+#define TARGET_FREQ         60        // Frequency of target signal (in Hz)
+#define BASE_FREQ           200       // Frequency of main processor clock (in MHz)
+#define NUM_CYCLES          (1*1)     // Number of cycles to acquire
+#define K                   (1*1)     // K value for DFT
 
 #endif

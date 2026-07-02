@@ -148,6 +148,11 @@ STATE(SM_RX_COMMAND) {
 		crc16_data(sm_rx_stm32->byte_received);
 		NEXT_STATE(SM_RX_LENGTH_LOW);
 	}
+	else
+	{
+		sm_rx_stm32->error = ERROR_UNAVAILABLE_COMMAND;
+		return;
+	}
 }
 
 STATE(SM_RX_LENGTH_LOW) {
@@ -164,14 +169,62 @@ STATE(SM_RX_LENGTH_HIGH) {
 
 STATE(SM_RX_DATA_STM32) {
 
-	if (sm_rx_stm32->bytesReceived == sm_rx_stm32->length) {
-		// Buffer encheu...
-		NEXT_STATE(SM_RX_CHECKSUM_LOW);
-		return;
-	}
     sm_rx_stm32->pBuffer[sm_rx->bytesReceived] = sm_rx_stm32->byte_received;
 	sm_rx_stm32->chksum = crc16_data(sm_rx_stm32->byte_received);
 	sm_rx_stm32->bytesReceived = sm_rx_stm32->bytesReceived + 1;
+
+	if (sm_rx_stm32->bytesReceived == sm_rx_stm32->length)
+	{
+		if(sm_rx_stm32->byte_received == MEASURE)
+		{
+			switch(sm_rx_stm32->pBuffer[0])
+			{
+				case NOM_FREQ_50HZ:
+				break;
+				case NOM_FREQ_60HZ:
+				break;
+				default:
+				sm_rx_stm32->error = ERROR_NACK_COMMAND;
+				return;
+			}
+			switch(sm_rx_stm32->pBuffer[1])
+			{
+				case NO_FIBER:
+				break;
+				case ONE_FIBER:
+				break;
+				case TWO_FIBERS:
+				break;
+				case THREE_FIBERS:
+				break;
+				case FOUR_FIBERS:
+				break;
+				default:
+				sm_rx_stm32->error = ERROR_NACK_COMMAND;
+				return;
+			}
+		}
+		else if(sm_rx_stm32->byte_received == IDENT_IED)
+		{
+			switch(sm_rx_stm32->pBuffer[0])
+			{
+				case NO_FIBER:
+				break;
+				case ONE_FIBER:
+				break;
+				case TWO_FIBERS:
+				break;
+				case THREE_FIBERS:
+				break;
+				case FOUR_FIBERS:
+				break;
+				default:
+				sm_rx_stm32->error = ERROR_NACK_COMMAND;
+				return;
+			}
+		}
+		NEXT_STATE(SM_RX_CHECKSUM_LOW);
+	}
 
 }
 

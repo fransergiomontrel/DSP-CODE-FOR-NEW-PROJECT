@@ -25,11 +25,13 @@ uint8_t buffer3[60];
 uint8_t buffer4[60];
 int64_t timeBuffer;
 uint32_t T1, T2, T3, T4;
-uint16_t syncTimes = 0, nominal_frequency = 0, CRC_retry = 0, number_IEDs = 0;
+uint16_t syncTimes = 0, CRC_retry = 0;
 int32_t delay_dT1 = 0, delay_dT2 = 0, delay_dT3 = 0, delay_dT4 = 0;
 uint32_t delay__T1, delay__T2, delay__T3, delay__T4;
 uint32_t ordered_list_T[4];
 uint8_t once_start = 1;
+uint8_t nominal_frequency = 0;
+uint8_t number_IEDs = 0;
 
 char ordered_list_Tname [4] = {IED_1, IED_2, IED_3, IED_4};
 
@@ -216,7 +218,7 @@ STATE(SM_TENSAO_WAIT){
             crc16_data(LENGTH_2B);
             crc16_data(NOP);
             crc16_data(PROTOCOL);
-            uint16_t CRC = crc16_data(INCOMPLETE_PACKAGE);
+            uint16_t CRC = crc16_data(INCOMPLETE_FRAME_STM32);
             serial_tx_to_stm_Init();
             tx_byte_soft(SOH_STM32_LOW);
             while(CpuTimer2.InterruptCount < 11);
@@ -230,7 +232,7 @@ STATE(SM_TENSAO_WAIT){
             while(CpuTimer2.InterruptCount < 11);
             tx_byte_soft(PROTOCOL);
             while(CpuTimer2.InterruptCount < 11);
-            tx_byte_soft(INCOMPLETE_PACKAGE);
+            tx_byte_soft(INCOMPLETE_FRAME_STM32);
             while(CpuTimer2.InterruptCount < 11);
             tx_byte_soft(CRC & 0x00FF);
             while(CpuTimer2.InterruptCount < 11);
@@ -239,6 +241,70 @@ STATE(SM_TENSAO_WAIT){
             INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, &rx_USB);
             once_start = 1;            
         }
+    }
+
+    if(rx_USB.error == ERROR_NACK_COMMAND)
+    {   
+        crc16_init();
+        crc16_data(SOH_STM32_LOW);
+        crc16_data(SOH_STM32_HIGH);
+        crc16_data(COMMAND_ERROR);
+        crc16_data(LENGTH_2B);
+        crc16_data(NOP);
+        crc16_data(APP_LAYER);
+        uint16_t CRC = crc16_data(NACK_COMMAND);
+        serial_tx_to_stm_Init();
+        tx_byte_soft(SOH_STM32_LOW);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(SOH_STM32_HIGH);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(COMMAND_ERROR);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(LENGTH_2B);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(NOP);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(APP_LAYER);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(NACK_COMMAND);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(CRC & 0x00FF);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(CRC >> 8);
+        while(CpuTimer2.InterruptCount < 11);
+        INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, &rx_USB);              
+    }
+
+    if(rx_USB.error == ERROR_UNAVAILABLE_COMMAND)
+    {   
+        crc16_init();
+        crc16_data(SOH_STM32_LOW);
+        crc16_data(SOH_STM32_HIGH);
+        crc16_data(COMMAND_ERROR);
+        crc16_data(LENGTH_2B);
+        crc16_data(NOP);
+        crc16_data(APP_LAYER);
+        uint16_t CRC = crc16_data(UNAVAILABLE_COMMAND);
+        serial_tx_to_stm_Init();
+        tx_byte_soft(SOH_STM32_LOW);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(SOH_STM32_HIGH);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(COMMAND_ERROR);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(LENGTH_2B);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(NOP);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(APP_LAYER);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(UNAVAILABLE_COMMAND);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(CRC & 0x00FF);
+        while(CpuTimer2.InterruptCount < 11);
+        tx_byte_soft(CRC >> 8);
+        while(CpuTimer2.InterruptCount < 11);
+        INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, &rx_USB);              
     }   
 }
 

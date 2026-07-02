@@ -1191,7 +1191,7 @@ void phasors_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board
         //INCOMPLETE_PACKAGE
         else if((rx_getFrameType(rx_Fibra) == CURRENT_PHASOR_X) && (!rx_checkframeReceived(rx_Fibra)))
         {
-            board_data->alarm = INCOMPLETE_PACKAGE;
+            board_data->alarm = INCOMPLETE_FRAME;
         }
         //WRONG_FRAME
         else if((rx_checkframeReceived(rx_Fibra)) && (rx_getFrameType(rx_Fibra) != CURRENT_PHASOR_X))
