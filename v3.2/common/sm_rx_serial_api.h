@@ -81,6 +81,8 @@ void rx_free_frame_stm32(CiseiRxChannel_stm32* rx);
  */
 void rx_reset_buffer(CiseiRxChannel* rx);
 
+void rx_reset_buffer_stm32(CiseiRxChannel_stm32* rx);
+
 /**
 * Fun��o que sinaliza que um frame v�lido foi recebido.
 * @param rx Ponteiro para uma estrutura CiseiRxChannel com o estado da recep��o serial.

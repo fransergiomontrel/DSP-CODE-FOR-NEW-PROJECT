@@ -451,13 +451,13 @@ void TXInts(uint8_t);
 */
 void RXInts(uint8_t);
 
-void phasors_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data);
+void phasors_int_to_float(CiseiRxChannel * rx_Fibra, float phasors_data[]);
 
-void phasors_ret_to_polar(tms320_board_data_t * board_data);
+void phasors_ret_to_polar(float phasors_data[]);
 
-void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data);
+void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, float phasors_data[], int8_t info_data[]);
 
-void tms320_frame_crc(tms320_uart_frame_t * tms320_uart_frame);
+uint16_t tms320_frame_crc(float phasors_data[][MASTER_DATA_PHASORS_COLS], int8_t info_data[][BOARD_PARAMETERS]);
 
 extern uint16_t acquisition_counter;
 #endif

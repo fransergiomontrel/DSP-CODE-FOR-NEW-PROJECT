@@ -2,7 +2,6 @@
 #include "hal.h"
 #include "CRC16.h"
 
-uint16_t CRC;
 
 uint16_t tx_end(CiseiTxChannel* tx){
     return tx->isFinished;
@@ -84,20 +83,21 @@ uint8_t start_tx_frame_software_fpga0(CiseiTxChannel* tx, teSerialFrameType type
 	return 1;
 }
 
-uint8_t start_tx_frame_software_stm32(CiseiTxChannel* tx, uint8_t command, uint8_t* pPayload, uint32_t nBytes)
+uint8_t start_tx_frame_software_stm32(CiseiTxChannel* tx, uint8_t command, float phasors_data[][MASTER_DATA_PHASORS_COLS], int8_t info_data[][BOARD_PARAMETERS])
 {
     if (!COMPARE(tx->sm_tx_serial_api, SM_TX_WAITING)){
 	    //TXInts(1);
         return 0;
 	}
 
-    tx->ptr_payload = pPayload;
-    tx->bytes_to_tx = nBytes;
+    tx->ptr_payload = (uint8_t *)phasors_data;
+    tx->bytes_to_tx = (sizeof(phasors_data)*sizeof(float))/5;
+    tx->ptr_payload_info = (uint8_t *)info_data;
+    tx->bytes_to_tx_info = sizeof(phasors_data);
     tx->index_to_tx = 0;
-    tx->chksum = 0;
+    tx->index_to_tx_info = 0;
     tx->isFinished = 0;
     tx->command = command;
-    tx->bytes_to_tx = nBytes;
 
     if(command == MEASURE)
     {
@@ -107,7 +107,7 @@ uint8_t start_tx_frame_software_stm32(CiseiTxChannel* tx, uint8_t command, uint8
         crc16_data(MEASURE);
         crc16_data(TMS_FRAME_LEN_LOW);
         crc16_data(TMS_FRAME_LEN_HIGH);
-        tms320_frame_crc((tms320_uart_frame_t *)(tx->ptr_payload));
+        tx->chksum = tms320_frame_crc(phasors_data, info_data);
     }
     
     if(tx->tx_FF)
@@ -163,26 +163,40 @@ STATE(SM_TX_COMMAND) {
 }
 
 STATE(SM_TX_DATA_STM32) {
-    if(sm_tx->index_to_tx == (sm_tx->bytes_to_tx-1))
-    {
-        NEXT_STATE(SM_TX_CHECKSUM_LOW);
-    }
     sm_tx->pTxByte(sm_tx->ptr_payload[sm_tx->index_to_tx]);    
     sm_tx->index_to_tx = sm_tx->index_to_tx + 1; 
+    if( (sm_tx->index_to_tx)%(MASTER_DATA_PHASORS_COLS*sizeof(float)) == 0)
+    {
+        NEXT_STATE(SM_TX_DATA_STM32_INFO);
+    }
+}
+
+STATE(SM_TX_DATA_STM32_INFO) {
+    
+    sm_tx->pTxByte(sm_tx->ptr_payload_info[sm_tx->index_to_tx_info]);    
+    sm_tx->index_to_tx_info = sm_tx->index_to_tx_info + 1; 
+    if( (sm_tx->index_to_tx_info)%(BOARD_PARAMETERS) == 0)
+    {
+        if (sm_tx->index_to_tx_info == 10)
+        {
+            NEXT_STATE(SM_TX_CHECKSUM_LOW);
+        }
+        
+        else
+        {
+            NEXT_STATE(SM_TX_DATA_STM32);
+        }
+    }
 }
 
 STATE(SM_TX_CHECKSUM_LOW) {
-    
-    tms320_uart_frame_t * temp_ptr = (tms320_uart_frame_t *)(sm_tx->ptr_payload); 
-    sm_tx->pTxByte((temp_ptr->crc) & 0x00FF); 
+    sm_tx->pTxByte((sm_tx->chksum) & 0x00FF); 
     NEXT_STATE(SM_TX_CHECKSUM_HIGH);
 
 }
 
-STATE(SM_TX_CHECKSUM_HIGH) {
-    
-    tms320_uart_frame_t * temp_ptr = (tms320_uart_frame_t *)(sm_tx->ptr_payload); 
-    sm_tx->pTxByte((temp_ptr->crc) >> 8);
+STATE(SM_TX_CHECKSUM_HIGH) { 
+    sm_tx->pTxByte((sm_tx->chksum) >> 8);
     NEXT_STATE(SM_TX_FINALIZE_STM32);
 
 }

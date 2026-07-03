@@ -88,6 +88,7 @@ void init_rx_serial_stm32(CiseiRxChannel_stm32* rx, uint8_t* pBuffer)
 	rx_free_frame_stm32(rx);
 	rx_reset_buffer_stm32(rx);
 	rx->lock = 0;
+	rx->error = 0;
 }
 
 #define sm_rx   ((CiseiRxChannel*)SM_PARAM)
@@ -104,15 +105,14 @@ STATE(SM_RX_RECEIVE_TYPE) {
 
 STATE(SM_RX_DATA) {
 
-	if (sm_rx->bytesReceived == sm_rx->nBytes) {
-		// Buffer encheu...
-		NEXT_STATE(SM_RX_WAITING);
-		return;
-	}
-
     sm_rx->pBuffer[sm_rx->bytesReceived] = sm_rx->byte_received;
 	sm_rx->bytesReceived = sm_rx->bytesReceived + 1;
 
+	if (sm_rx->bytesReceived == sm_rx->nBytes) {
+		sm_rx->frameReceived = 1;
+		NEXT_STATE(SM_RX_WAITING);
+		return;
+	}
 }
 
 #define sm_rx_stm32   ((CiseiRxChannel_stm32*)SM_PARAM)

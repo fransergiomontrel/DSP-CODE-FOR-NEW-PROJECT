@@ -1058,185 +1058,59 @@ void rx_byte_soft(void)
 }
 
 
-void phasors_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data)
+void phasors_int_to_float(CiseiRxChannel * rx_Fibra, float phasors_data[])
 {
     if ((rx_getFrameType(rx_Fibra) == CURRENT_PHASOR_X) && (rx_Fibra->frameReceived))
     {
         uint32_to_float_t conv_to_float;
+        uint16_t channel;
+        uint16_t component;
+        uint16_t buffer_index;
+        uint16_t phasor_index;
 
-        //Real part conversion to float of channel 1
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[3]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[2]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[1]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[0]));
-        board_data->channel1[0] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
-        board_data->channel1[0] = board_data->channel1[0]/(LUT_FLOAT_FACTOR);
-        board_data->channel1[0] = board_data->channel1[0]/(RESULTS_BUFFER_SIZE);
-        //Imaginary part conversion to float of channel 1
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[7]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[6]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[5]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[4]));
-        board_data->channel1[1] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
-        board_data->channel1[1] = board_data->channel1[1]/(LUT_FLOAT_FACTOR);
-        board_data->channel1[1] = board_data->channel1[1]/(RESULTS_BUFFER_SIZE);
-        
-        //Real part conversion to float of channel 2
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[11]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[10]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[9]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[8]));
-        board_data->channel2[0] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
-        board_data->channel2[0] = board_data->channel2[0]/(LUT_FLOAT_FACTOR);
-        board_data->channel2[0] = board_data->channel2[0]/(RESULTS_BUFFER_SIZE);
-        //Imaginary part conversion to float of channel 2
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[15]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[14]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[13]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[12]));
-        board_data->channel2[1] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
-        board_data->channel2[1] = board_data->channel2[1]/(LUT_FLOAT_FACTOR);
-        board_data->channel2[1] = board_data->channel2[1]/(RESULTS_BUFFER_SIZE);
-        
-        //Real part conversion to float of channel 3
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[19]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[18]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[17]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[16]));
-        board_data->channel3[0] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
-        board_data->channel3[0] = board_data->channel3[0]/(LUT_FLOAT_FACTOR);
-        board_data->channel3[0] = board_data->channel3[0]/(RESULTS_BUFFER_SIZE);
-        //Imaginary part conversion to float of channel 3
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[23]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[22]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[21]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[20]));
-        board_data->channel3[1] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
-        board_data->channel3[1] = board_data->channel3[1]/(LUT_FLOAT_FACTOR);
-        board_data->channel3[1] = board_data->channel3[1]/(RESULTS_BUFFER_SIZE);
-
-        //Real part conversion to float of channel 4
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[27]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[26]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[25]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[24]));
-        board_data->channel4[0] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
-        board_data->channel4[0] = board_data->channel4[0]/(LUT_FLOAT_FACTOR);
-        board_data->channel4[0] = board_data->channel4[0]/(RESULTS_BUFFER_SIZE);
-        //Imaginary part conversion to float of channel 4
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[31]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[30]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[29]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[28]));
-        board_data->channel4[1] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
-        board_data->channel4[1] = board_data->channel4[1]/(LUT_FLOAT_FACTOR);
-        board_data->channel4[1] = board_data->channel4[1]/(RESULTS_BUFFER_SIZE);
-
-        //Real part conversion to float of channel 5
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[35]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[34]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[33]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[32]));
-        board_data->channel5[0] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
-        board_data->channel5[0] = board_data->channel5[0]/(LUT_FLOAT_FACTOR);
-        board_data->channel5[0] = board_data->channel5[0]/(RESULTS_BUFFER_SIZE);
-        //Imaginary part conversion to float of channel 5
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[39]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[38]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[37]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[36]));
-        board_data->channel5[1] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
-        board_data->channel5[1] = board_data->channel5[1]/(LUT_FLOAT_FACTOR);
-        board_data->channel5[1] = board_data->channel5[1]/(RESULTS_BUFFER_SIZE);
-
-        //Real part conversion to float of channel 6
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[43]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[42]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[41]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[40]));
-        board_data->channel6[0] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF COS TO FINAL IMAGINARY PART OF PHASOR
-        board_data->channel6[0] = board_data->channel6[0]/(LUT_FLOAT_FACTOR);
-        board_data->channel6[0] = board_data->channel6[0]/(RESULTS_BUFFER_SIZE);
-        //Imaginary part conversion to float of channel 6
-        conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[47]) << 24) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[46]) << 16) |
-                                       (((uint32_t)rx_Fibra->pBuffer[45]) << 8) | 
-                                       (((uint32_t)rx_Fibra->pBuffer[44]));
-        board_data->channel6[1] = conv_to_float.retangular_float;
-        //CONVERTING TABLE LUTS OF FPGA TO FLOAT VALUE OF SIN AND TO FINAL IMAGINARY PART OF PHASOR 
-        board_data->channel6[1] = board_data->channel6[1]/(LUT_FLOAT_FACTOR);
-        board_data->channel6[1] = board_data->channel6[1]/(RESULTS_BUFFER_SIZE);
-
-        
-    }
-
-    else
-    {
-        //NO_FRAME
-        if((rx_getFrameType(rx_Fibra) != CURRENT_PHASOR_X) && (!rx_checkframeReceived(rx_Fibra)))
+        for (channel = 0; channel < TMS320_CHANNEL_COUNT; channel++)
         {
-            board_data->alarm = NO_FRAME;
-        }
-        //INCOMPLETE_PACKAGE
-        else if((rx_getFrameType(rx_Fibra) == CURRENT_PHASOR_X) && (!rx_checkframeReceived(rx_Fibra)))
-        {
-            board_data->alarm = INCOMPLETE_FRAME;
-        }
-        //WRONG_FRAME
-        else if((rx_checkframeReceived(rx_Fibra)) && (rx_getFrameType(rx_Fibra) != CURRENT_PHASOR_X))
-        {
-            board_data->alarm = WRONG_FRAME;            
+            for (component = 0; component < TMS320_CHANNEL_FLOAT_COUNT; component++)
+            {
+                phasor_index = (channel * TMS320_CHANNEL_FLOAT_COUNT) + component;
+                buffer_index = phasor_index * 4U;
+
+                conv_to_float.retangular_int = (((uint32_t)rx_Fibra->pBuffer[buffer_index + 3U]) << 24) |
+                                               (((uint32_t)rx_Fibra->pBuffer[buffer_index + 2U]) << 16) |
+                                               (((uint32_t)rx_Fibra->pBuffer[buffer_index + 1U]) << 8) |
+                                               (((uint32_t)rx_Fibra->pBuffer[buffer_index]));
+
+                phasors_data[phasor_index] = conv_to_float.retangular_float;
+                phasors_data[phasor_index] = phasors_data[phasor_index]/(LUT_FLOAT_FACTOR);
+                phasors_data[phasor_index] = phasors_data[phasor_index]/(RESULTS_BUFFER_SIZE);
+            }
         }
     }
     
 }
 
-void phasors_ret_to_polar(tms320_board_data_t * board_data)
+void phasors_ret_to_polar(float phasors_data[])
 {
+    uint16_t channel;
+    uint16_t real_index;
+    uint16_t imag_index;
+    float Xre;
+    float Xim;
 
-    float Xre1 = board_data->channel1[0];
-    float Xim1 = board_data->channel1[1];
-    float Xre2 = board_data->channel2[0]; 
-    float Xim2 = board_data->channel2[1];
-    float Xre3 = board_data->channel3[0]; 
-    float Xim3 = board_data->channel3[1];
-    float Xre4 = board_data->channel4[0]; 
-    float Xim4 = board_data->channel4[1];
-    float Xre5 = board_data->channel5[0];
-    float Xim5 = board_data->channel5[1];
-    float Xre6 = board_data->channel6[0];
-    float Xim6 = board_data->channel6[1];
+    for (channel = 0; channel < TMS320_CHANNEL_COUNT; channel++)
+    {
+        real_index = channel * TMS320_CHANNEL_FLOAT_COUNT;
+        imag_index = real_index + 1U;
 
-    //Store phasors modules
-    board_data->channel1[0] =  (float)(sqrtl(powl(Xre1, 2.0) + powl(Xim1, 2.0)));
-    board_data->channel2[0] =  (float)(sqrtl(powl(Xre2, 2.0) + powl(Xim2, 2.0)));
-    board_data->channel3[0] =  (float)(sqrtl(powl(Xre3, 2.0) + powl(Xim3, 2.0)));
-    board_data->channel4[0] =  (float)(sqrtl(powl(Xre4, 2.0) + powl(Xim4, 2.0)));
-    board_data->channel5[0] =  (float)(sqrtl(powl(Xre5, 2.0) + powl(Xim5, 2.0)));
-    board_data->channel6[0] =  (float)(sqrtl(powl(Xre6, 2.0) + powl(Xim6, 2.0)));
+        Xre = phasors_data[real_index];
+        Xim = phasors_data[imag_index];
 
-    //Store phasors phases
-    board_data->channel1[1] = (float)(atan2l(Xim1, Xre1)*180)/M_PI;
-    board_data->channel2[1] = (float)(atan2l(Xim2, Xre2)*180)/M_PI;
-    board_data->channel3[1] = (float)(atan2l(Xim3, Xre3)*180)/M_PI;
-    board_data->channel4[1] = (float)(atan2l(Xim4, Xre4)*180)/M_PI;
-    board_data->channel5[1] = (float)(atan2l(Xim5, Xre5)*180)/M_PI;
-    board_data->channel6[1] = (float)(atan2l(Xim6, Xre6)*180)/M_PI;
-
+        phasors_data[real_index] = (float)(sqrtl(powl(Xre, 2.0) + powl(Xim, 2.0)));
+        phasors_data[imag_index] = (float)(atan2l(Xim, Xre)*180)/M_PI;
+    }
 }
 
-void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board_data)
+void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, float phasors_data[], int8_t info_data[])
 {
     if ((rx_getFrameType(rx_Fibra) == CURRENT_PHASOR_X) && (rx_Fibra->frameReceived))
     {
@@ -1244,118 +1118,58 @@ void ads1118_int_to_float(CiseiRxChannel * rx_Fibra, tms320_board_data_t * board
         uint16_t CRC_calc;
 
         uint16_to_float_t conv_to_float;
-        uint8_t i;
-        for(i = 0; i < TMS320_ANALOG_FLOAT_COUNT;i++){
+        uint8_t analog_channel;
+        for(analog_channel = 0; analog_channel < TMS320_ANALOG_FLOAT_COUNT; analog_channel++){
 
-            crc16_data(rx_Fibra->pBuffer[48 + 2*i]);
-            CRC_calc = crc16_data(rx_Fibra->pBuffer[49 + 2*i]);
+            crc16_data(rx_Fibra->pBuffer[48 + 2*analog_channel]);
+            CRC_calc = crc16_data(rx_Fibra->pBuffer[49 + 2*analog_channel]);
 
-            conv_to_float.ads1118_int = (((uint16_t)rx_Fibra->pBuffer[49 + 2*i]) << 8) | 
-                                       (((uint16_t)rx_Fibra->pBuffer[48 + 2*i]));
-            board_data->analog[i] = conv_to_float.ads1118_float;
+            conv_to_float.ads1118_int = (((uint16_t)rx_Fibra->pBuffer[49 + 2*analog_channel]) << 8) | 
+                                       (((uint16_t)rx_Fibra->pBuffer[48 + 2*analog_channel]));
+            phasors_data[analog_channel + MASTER_DATA_ANALOG_OFFSET] = conv_to_float.ads1118_float;
         }
         conv_to_float.ads1118_int = (((uint16_t)rx_Fibra->pBuffer[59]) << 8) | 
                                        (((uint16_t)rx_Fibra->pBuffer[58]));
 
         if(CRC_calc != conv_to_float.ads1118_int)
         {
-            board_data->alarm = ADS1118_CRC_NACK;
+            info_data[0] = ADS1118_CRC_NACK;
         }
     }
     
 }
 
-void tms320_frame_crc(tms320_uart_frame_t * tms320_uart_frame)
+uint16_t tms320_frame_crc(float phasors_data[][MASTER_DATA_PHASORS_COLS], int8_t info_data[][BOARD_PARAMETERS])
 {
-    //crc16_init();
     uint8_t i;
     uint8_t j;
     uint32_t tmp_1;
-    uint32_t tmp_2;
     uint16_t CRC_calc;
 
     for(i = 0; i < TMS320_BOARD_COUNT; i++)
     {
-        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel1[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel1[1]), sizeof(tmp_2));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>24)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
-
-        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel2[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel2[1]), sizeof(tmp_2));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>24)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
-
-        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel3[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel3[1]), sizeof(tmp_2));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>24)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
-
-        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel4[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel4[1]), sizeof(tmp_2));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>24)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
-
-        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel5[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel5[1]), sizeof(tmp_2));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>24)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
-
-        memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].channel6[0]), sizeof(tmp_1));
-        memcpy(&tmp_2, &(tms320_uart_frame->payload.boards[i].channel6[1]), sizeof(tmp_2));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_1>>14)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>8)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>16)));
-        crc16_data((uint16_t)((0x000000FF)&(tmp_2>>24)));
-
-        for(j = 0; j < TMS320_ANALOG_FLOAT_COUNT; j++)
-        {
-            memcpy(&tmp_1, &(tms320_uart_frame->payload.boards[i].analog[j]), sizeof(tmp_1));
+        for(j = 0; j < MASTER_DATA_ANALOG_OFFSET; i++)
+        {   
+            memcpy(&tmp_1, &phasors_data[i][j], sizeof(tmp_1));
             crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
             crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
             crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
             crc16_data((uint16_t)((0x000000FF)&(tmp_1>>24)));
         }
-
-        crc16_data((uint16_t)(tms320_uart_frame->payload.boards[i].alarm));
-        CRC_calc = crc16_data((uint16_t)(tms320_uart_frame->payload.boards[i].status));
+        for(j = MASTER_DATA_ANALOG_OFFSET; j < MASTER_DATA_PHASORS_COLS; j++)
+        {
+            memcpy(&tmp_1, &phasors_data[i][j], sizeof(tmp_1));
+            crc16_data((uint16_t)((0x000000FF)&(tmp_1)));
+            crc16_data((uint16_t)((0x000000FF)&(tmp_1>>8)));
+            crc16_data((uint16_t)((0x000000FF)&(tmp_1>>16)));
+            crc16_data((uint16_t)((0x000000FF)&(tmp_1>>24)));
+        }
+        crc16_data((uint16_t)(info_data[i][0]));
+        CRC_calc = crc16_data((uint16_t)(info_data[i][1]));
     }
-    //memcpy(&(tms320_uart_frame->payload), tms320_data, sizeof(tms320_data_t));
-    tms320_uart_frame->crc = CRC_calc; 
+   
+    return CRC_calc;
+    
 }
 
 

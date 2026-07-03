@@ -37,14 +37,8 @@ char ordered_list_Tname [4] = {IED_1, IED_2, IED_3, IED_4};
 
 tms320_sync_frame_t syncPayload;
 
-tms320_board_data_t board_data_0 = {0};
-tms320_board_data_t board_data_1 = {0};
-tms320_board_data_t board_data_2 = {0};
-tms320_board_data_t board_data_3 = {0};
-tms320_board_data_t board_data_4 = {0};
-
-tms320_data_t tms320_data;
-tms320_uart_frame_t tms320_uart_frame;
+float master_data_phasors[TMS320_BOARD_COUNT][MASTER_DATA_PHASORS_COLS] = {0}; 
+int8_t info_data[TMS320_BOARD_COUNT][BOARD_PARAMETERS] = {0};
 
 extern volatile uint32_t delay_T1, delay_T2, delay_T3, delay_T4;
 extern volatile uint16_t timer_end;
@@ -99,13 +93,13 @@ STATE(SM_TENSAO_CFG){
     init_rx_serial(&rx_Fibra3, buffer3, sizeof(buffer3));
     init_rx_serial(&rx_Fibra4, buffer4, sizeof(buffer4));
 
-    serial_tx_to_fpga_Init();
-    tx_byte_soft(0x01);
+    //serial_tx_to_fpga_Init();
+    //tx_byte_soft(0x01);
 
-    tx_D_byte(0x01);
-    tx_A_byte(0x01);
-    tx_C_byte(0x01);
-    tx_B_byte(0x01);
+    //tx_D_byte(0x01);
+    //tx_A_byte(0x01);
+    //tx_C_byte(0x01);
+    //tx_B_byte(0x01);
 
     activateUART_Ints();
 
@@ -165,8 +159,7 @@ STATE(SM_TENSAO_WAIT){
             rx_free_frame_stm32(&rx_USB);
         }
         else if(rx_USB.command == IDENT_IED)
-        {
-                       
+        {                      
             rx_free_frame_stm32(&rx_USB);            
         }
     }
@@ -199,7 +192,7 @@ STATE(SM_TENSAO_WAIT){
         while(CpuTimer2.InterruptCount < 11);
         tx_byte_soft(CRC >> 8);
         while(CpuTimer2.InterruptCount < 11);            
-        
+        rx_USB.error = 0;
     }
     
     if(COMPARE(rx_USB.sm_rx_serial_api, SM_RX_DATA_STM32))
@@ -238,7 +231,7 @@ STATE(SM_TENSAO_WAIT){
             while(CpuTimer2.InterruptCount < 11);
             tx_byte_soft(CRC >> 8);
             while(CpuTimer2.InterruptCount < 11);
-            INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, &rx_USB);
+            INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, 0);
             once_start = 1;            
         }
     }
@@ -272,7 +265,8 @@ STATE(SM_TENSAO_WAIT){
         while(CpuTimer2.InterruptCount < 11);
         tx_byte_soft(CRC >> 8);
         while(CpuTimer2.InterruptCount < 11);
-        INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, &rx_USB);              
+        INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, 0);
+        rx_USB.error = 0;              
     }
 
     if(rx_USB.error == ERROR_UNAVAILABLE_COMMAND)
@@ -304,12 +298,15 @@ STATE(SM_TENSAO_WAIT){
         while(CpuTimer2.InterruptCount < 11);
         tx_byte_soft(CRC >> 8);
         while(CpuTimer2.InterruptCount < 11);
-        INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, &rx_USB);              
+        INIT(rx_USB.sm_rx_serial_api, SM_RX_WAITING_STM32_LOW, 0);
+        rx_USB.error = 0;              
     }   
 }
 
 STATE(SM_TENSAO_DELAY){
-    if(JUST_ARRIVED){
+    if(number_IEDs != NO_FIBER)
+    {
+        if(JUST_ARRIVED){
         delay_dT1 = delay_dT2 = delay_dT3 = delay_dT4 = syncTimes = timer_end = CpuTimer1.InterruptCount = 0;
         CpuTimer1Regs.PRD.all = 200000; //CPU Timer Period Register
         CpuTimer1Regs.TCR.bit.TRB = 1;
@@ -542,6 +539,11 @@ STATE(SM_TENSAO_DELAY){
         clr_LED3();
 
         configureSCI_UART();
+        }
+    }
+    else
+    {
+        NEXT_STATE(SM_TENSAO_TX_SYNC);
     }
 }
 
@@ -1297,75 +1299,75 @@ STATE(SM_TENSAO_REQ_I4){
 
 STATE(RET_TO_POL_CONVERT){
     
-    phasors_int_to_float(&rx_Fibra0,&board_data_0);
-    phasors_ret_to_polar(&board_data_0);
+    phasors_int_to_float(&rx_Fibra0, master_data_phasors[0]);
+    phasors_ret_to_polar(master_data_phasors[0]);
 
     if(number_IEDs == ONE_FIBER)
     {
-        phasors_int_to_float(&rx_Fibra1,&board_data_1);
-        phasors_ret_to_polar(&board_data_1);
+        phasors_int_to_float(&rx_Fibra1, master_data_phasors[1]);
+        phasors_ret_to_polar(master_data_phasors[1]);
     }
     else if(number_IEDs == TWO_FIBERS)
     {
-        phasors_int_to_float(&rx_Fibra1,&board_data_1);
-        phasors_ret_to_polar(&board_data_1);
+        phasors_int_to_float(&rx_Fibra1, master_data_phasors[1]);
+        phasors_ret_to_polar(master_data_phasors[1]);
 
-        phasors_int_to_float(&rx_Fibra2,&board_data_2);
-        phasors_ret_to_polar(&board_data_2);
+        phasors_int_to_float(&rx_Fibra2, master_data_phasors[2]);
+        phasors_ret_to_polar(master_data_phasors[2]);
     }
     else if(number_IEDs == THREE_FIBERS)
     {
-        phasors_int_to_float(&rx_Fibra1,&board_data_1);
-        phasors_ret_to_polar(&board_data_1);
+        phasors_int_to_float(&rx_Fibra1, master_data_phasors[1]);
+        phasors_ret_to_polar(master_data_phasors[1]);
         
-        phasors_int_to_float(&rx_Fibra2,&board_data_2);
-        phasors_ret_to_polar(&board_data_2);
+        phasors_int_to_float(&rx_Fibra2, master_data_phasors[2]);
+        phasors_ret_to_polar(master_data_phasors[2]);
 
-        phasors_int_to_float(&rx_Fibra3,&board_data_3);
-        phasors_ret_to_polar(&board_data_3);
+        phasors_int_to_float(&rx_Fibra3, master_data_phasors[3]);
+        phasors_ret_to_polar(master_data_phasors[3]);
     }
     else if(number_IEDs == FOUR_FIBERS)
     {
-        phasors_int_to_float(&rx_Fibra1,&board_data_1);
-        phasors_ret_to_polar(&board_data_1);
+        phasors_int_to_float(&rx_Fibra1, master_data_phasors[1]);
+        phasors_ret_to_polar(master_data_phasors[1]);
         
-        phasors_int_to_float(&rx_Fibra2,&board_data_2);
-        phasors_ret_to_polar(&board_data_2);
+        phasors_int_to_float(&rx_Fibra2, master_data_phasors[2]);
+        phasors_ret_to_polar(master_data_phasors[2]);
 
-        phasors_int_to_float(&rx_Fibra3,&board_data_3);
-        phasors_ret_to_polar(&board_data_3);
+        phasors_int_to_float(&rx_Fibra3, master_data_phasors[3]);
+        phasors_ret_to_polar(master_data_phasors[3]);
 
-        phasors_int_to_float(&rx_Fibra4,&board_data_4);
-        phasors_ret_to_polar(&board_data_4);
+        phasors_int_to_float(&rx_Fibra4, master_data_phasors[4]);
+        phasors_ret_to_polar(master_data_phasors[4]);
     }
     NEXT_STATE(SM_CORRENTE_TEMPERATURA);
 }
 
 STATE(SM_CORRENTE_TEMPERATURA){
     
-    ads1118_int_to_float(&rx_Fibra0,&board_data_0);
+    ads1118_int_to_float(&rx_Fibra0, master_data_phasors[0], info_data[0]);
 
     if(number_IEDs == ONE_FIBER)
     {
-        ads1118_int_to_float(&rx_Fibra1,&board_data_1);
+        ads1118_int_to_float(&rx_Fibra1, master_data_phasors[1], info_data[1]);
     }
     else if(number_IEDs == TWO_FIBERS)
     {
-        ads1118_int_to_float(&rx_Fibra1,&board_data_1);
-        ads1118_int_to_float(&rx_Fibra2,&board_data_2);
+        ads1118_int_to_float(&rx_Fibra1, master_data_phasors[1], info_data[1]);
+        ads1118_int_to_float(&rx_Fibra2, master_data_phasors[2], info_data[2]);
     }
     else if(number_IEDs == THREE_FIBERS)
     {
-        ads1118_int_to_float(&rx_Fibra1,&board_data_1);
-        ads1118_int_to_float(&rx_Fibra2,&board_data_2);
-        ads1118_int_to_float(&rx_Fibra3,&board_data_3);
+        ads1118_int_to_float(&rx_Fibra1, master_data_phasors[1], info_data[1]);
+        ads1118_int_to_float(&rx_Fibra2, master_data_phasors[2], info_data[2]);
+        ads1118_int_to_float(&rx_Fibra3, master_data_phasors[3], info_data[3]);
     }
     else if(number_IEDs == FOUR_FIBERS)
     {
-        ads1118_int_to_float(&rx_Fibra1,&board_data_1);
-        ads1118_int_to_float(&rx_Fibra2,&board_data_2);
-        ads1118_int_to_float(&rx_Fibra3,&board_data_3);
-        ads1118_int_to_float(&rx_Fibra4,&board_data_4);
+        ads1118_int_to_float(&rx_Fibra1, master_data_phasors[1], info_data[1]);
+        ads1118_int_to_float(&rx_Fibra2, master_data_phasors[2], info_data[2]);
+        ads1118_int_to_float(&rx_Fibra3, master_data_phasors[3], info_data[3]);
+        ads1118_int_to_float(&rx_Fibra4, master_data_phasors[4], info_data[4]);
     }
     NEXT_STATE(SM_SEND_DATA);
     
@@ -1375,33 +1377,34 @@ STATE(SM_SEND_DATA){
 
     if(JUST_ARRIVED){
 
-        memcpy(&(tms320_data.boards[0]), &board_data_0, sizeof(tms320_board_data_t));
-        memcpy(&(tms320_data.boards[1]), &board_data_1, sizeof(tms320_board_data_t));
-        memcpy(&(tms320_data.boards[2]), &board_data_2, sizeof(tms320_board_data_t));
-        memcpy(&(tms320_data.boards[3]), &board_data_3, sizeof(tms320_board_data_t));
-        memcpy(&(tms320_data.boards[4]), &board_data_4, sizeof(tms320_board_data_t));
-        //Send data to STM32 through software serial
-        //data_frame.pCurrent.acquisition_counter = acquisition_counter;
-        //tms320_frame_crc(&tms320_data, &tms320_uart_frame);
-        memcpy(&(tms320_uart_frame.payload), &tms320_data, sizeof(tms320_data_t));
         serial_tx_to_stm_Init();
-        start_tx_frame_software_stm32(&tx_USB, MEASURE, (uint8_t*)&tms320_uart_frame, sizeof(tms320_uart_frame));//Montar pacote de transferencia
+        start_tx_frame_software_stm32(&tx_USB, MEASURE, master_data_phasors, info_data);//Montar pacote de transferencia
 
     }
     if(tx_end(&tx_USB)){
         DELAY_US(10000);
 
-        memset(&board_data_0, 0, sizeof(board_data_0));
-        memset(&board_data_1, 0, sizeof(board_data_1));
-        memset(&board_data_2, 0, sizeof(board_data_2));
-        memset(&board_data_3, 0, sizeof(board_data_3));
-        memset(&board_data_4, 0, sizeof(board_data_4));
+        memset(&buffer0, 0, sizeof(buffer0));
+        memset(&buffer1, 0, sizeof(buffer1));
+        memset(&buffer2, 0, sizeof(buffer2));
+        memset(&buffer3, 0, sizeof(buffer3));
+        memset(&buffer4, 0, sizeof(buffer4));
+
+        memset(&master_data_phasors, 0, sizeof(master_data_phasors));
+        memset(&info_data, 0, sizeof(info_data));
 
         rx_free_frame(&rx_Fibra0);
         rx_free_frame(&rx_Fibra1);
         rx_free_frame(&rx_Fibra2);
         rx_free_frame(&rx_Fibra3);
         rx_free_frame(&rx_Fibra4);
+
+        rx_reset_buffer_stm32(&rx_USB);
+        rx_reset_buffer(&rx_Fibra0);
+        rx_reset_buffer(&rx_Fibra1);
+        rx_reset_buffer(&rx_Fibra2);
+        rx_reset_buffer(&rx_Fibra3);
+        rx_reset_buffer(&rx_Fibra4);
 
         NEXT_STATE(SM_TENSAO_WAIT);
     }

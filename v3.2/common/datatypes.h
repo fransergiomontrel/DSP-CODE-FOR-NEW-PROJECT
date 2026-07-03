@@ -24,23 +24,14 @@ typedef unsigned char boolean;
 #define TMS320_BOARD_COUNT            5U
 #define TMS320_CHANNEL_COUNT          6U
 #define TMS320_CHANNEL_FLOAT_COUNT    2U
+#define BOARD_PARAMETERS              2U
 #define TMS320_ANALOG_FLOAT_COUNT     5U
-#define TMS320_BOARD_STATUS_SIZE      1U
-#define TMS320_BOARD_ALARM_SIZE       1U
-#define TMS320_CRC_SIZE               2U
-#define TMS320_SAMPLE_REQUEST_SIZE    3U
-#define TMS320_SAMPLE_FASOR_COMMAND   0x0CU
-//#define TMS320_SAMPLE_DISSIPATION     0x0DU
 
+#define MASTER_DATA_PHASORS_COLS \
+    (TMS320_CHANNEL_COUNT * TMS320_CHANNEL_FLOAT_COUNT + TMS320_ANALOG_FLOAT_COUNT)
 
-#define TMS320_BOARD_PAYLOAD_SIZE     \
-    (((TMS320_CHANNEL_COUNT * TMS320_CHANNEL_FLOAT_COUNT) + \
-      TMS320_ANALOG_FLOAT_COUNT) * \
-     (uint32_t)sizeof(float) + TMS320_BOARD_STATUS_SIZE + \
-     TMS320_BOARD_ALARM_SIZE)
-#define TMS320_PAYLOAD_SIZE           (TMS320_BOARD_COUNT * TMS320_BOARD_PAYLOAD_SIZE)
-#define TMS320_UART_FRAME_SIZE        (TMS320_PAYLOAD_SIZE + TMS320_CRC_SIZE)
-
+#define MASTER_DATA_ANALOG_OFFSET \
+    (TMS320_CHANNEL_COUNT * TMS320_CHANNEL_FLOAT_COUNT)
 
 typedef union
 {
@@ -60,35 +51,6 @@ typedef struct
     uint8_t number_ieds;
 }tms320_sync_frame_t;
 
-#pragma pack(push, 1)
-typedef struct 
-{
-    float channel1[TMS320_CHANNEL_FLOAT_COUNT];
-    float channel2[TMS320_CHANNEL_FLOAT_COUNT];
-    float channel3[TMS320_CHANNEL_FLOAT_COUNT];
-    float channel4[TMS320_CHANNEL_FLOAT_COUNT];
-    float channel5[TMS320_CHANNEL_FLOAT_COUNT];
-    float channel6[TMS320_CHANNEL_FLOAT_COUNT];
-    float analog[TMS320_ANALOG_FLOAT_COUNT];
-    int8_t alarm;
-    int8_t status;
-} tms320_board_data_t;
-
-
-//#pragma pack(1)
-typedef struct
-{
-    tms320_board_data_t boards[TMS320_BOARD_COUNT];
-} tms320_data_t;
-
-
-//#pragma pack(1)
-typedef struct
-{
-    tms320_data_t payload;
-    uint16_t crc;
-} tms320_uart_frame_t;
-#pragma pack(pop)
 
 //! Pacote das estatisticas do sincronismo entre interfaces.
 typedef struct {

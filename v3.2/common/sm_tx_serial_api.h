@@ -24,7 +24,10 @@ typedef struct {
     teSerialFrameType type:8;      ///< Tipo do frame a ser transmitido pela comunica��o serial. \see teSerialFrameType.
     uint8_t* ptr_payload;          ///< Ponteiro com os dados a serem transmitidos.
     uint32_t bytes_to_tx;          ///< Informa quantos dados ser�o transmitidos.
+    uint8_t* ptr_payload_info;          ///< Ponteiro com os dados a serem transmitidos.
+    uint8_t bytes_to_tx_info;          ///< Informa quantos dados ser�o transmitidos.
     uint32_t index_to_tx;          ///< �ndice que � incrementado a cada byte sendo transmitido.
+    uint8_t index_to_tx_info;          ///< �ndice que � incrementado a cada byte sendo transmitido.
     uint16_t chksum;               ///< Vari�vel tempor�ria que � utilizada para o c�lculo do CHKSUM. A cada byte transmitido esta vari�vel � atualizada.
     StateMachine sm_tx_serial_api; ///< M�quina de estados utilizada para a transmiss�o dos dados. \see StateMachine
     uint16_t isFinished;           ///< Sinalizador que informa que a transmiss�o foi conclu�da.
@@ -72,7 +75,7 @@ uint16_t tx_end(CiseiTxChannel* tx);
 
 uint8_t start_tx_frame_software_fpga0(CiseiTxChannel* tx, teSerialFrameType type);
 
-uint8_t start_tx_frame_software_stm32(CiseiTxChannel* tx, uint8_t command, uint8_t* pPayload, uint32_t nBytes);
+uint8_t start_tx_frame_software_stm32(CiseiTxChannel* tx, uint8_t command, float phasors_data[][MASTER_DATA_PHASORS_COLS], int8_t info_data[][BOARD_PARAMETERS]);
 
 STATE(SM_START);                ///< Dispara a comunica��o serial (inicia a transmiss�o do frame).
 STATE(SM_TX_WAITING);           ///< Estado aguardando o disparo da transmiss�o serial
@@ -82,6 +85,7 @@ STATE(SM_START_STM32_LOW);
 STATE(SM_START_STM32_HIGH);
 STATE(SM_TX_COMMAND);
 STATE(SM_TX_DATA_STM32);
+STATE(SM_TX_DATA_STM32_INFO);
 STATE(SM_TX_CHECKSUM_LOW);
 STATE(SM_TX_CHECKSUM_HIGH);
 STATE(SM_TX_FINALIZE_STM32) ;
